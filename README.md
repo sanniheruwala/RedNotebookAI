@@ -11,6 +11,8 @@ It is designed to feel like a modern blend of **Hex**, **Deepnote**,
 **Databricks Notebook**, **Jupyter**, **Observable**, and **NotebookLM**, but
 stays lightweight, open-source, and developer-friendly.
 
+![RedNotebook AI — notebook canvas with SQL cell, metadata sidebar, and AI assistant panel](docs/images/screenshot-dark.png)
+
 ---
 
 ## Features (Phase 1 MVP)
