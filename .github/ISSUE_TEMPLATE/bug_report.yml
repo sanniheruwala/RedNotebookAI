@@ -1,0 +1,82 @@
+name: Bug report
+description: Report a problem with RedNotebook AI
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill out the
+        sections below so we can reproduce and fix the issue quickly.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the app is affected?
+      options:
+        - Backend (FastAPI / Python)
+        - Frontend (Next.js / React)
+        - Trino connector
+        - AI provider (mock / OpenAI / Anthropic / Ollama)
+        - Knowledge notebook / infographic
+        - SQL guard
+        - CLI
+        - Docker / deployment
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of what the bug is.
+      placeholder: When I do X, Y happens instead of Z.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps so we can replay the bug.
+      placeholder: |
+        1. Start the backend with `rednotebook run`
+        2. Open http://localhost:3000
+        3. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: RedNotebook AI version
+      placeholder: "0.1.0 / commit sha"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Python version, Node version (frontend only)
+      placeholder: "macOS 15.0, Python 3.12, Node 20.x"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / screenshots
+      description: Paste backend logs, browser console output, or screenshots. **Redact secrets.**
+      render: shell
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true
+        - label: I redacted any secrets, tokens, or credentials from the logs above.
+          required: true

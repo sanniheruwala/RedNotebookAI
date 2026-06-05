@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest a new feature or enhancement
+title: "[feat]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Please describe the problem you're trying to
+        solve before proposing a specific solution.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - New connector
+        - AI / LLM capability
+        - Visualization / charts
+        - Notebook UX
+        - Knowledge notebook / infographic
+        - SQL guard / security
+        - Performance
+        - Collaboration / sharing
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user problem does this solve? Who hits it and how often?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work? Mock UI / API shapes welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else have you tried or considered?
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, links, related issues.

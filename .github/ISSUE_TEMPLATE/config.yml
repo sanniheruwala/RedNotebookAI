@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/sanniheruwala/QueryCanvasAI/tree/main/docs
+    about: Check the docs before filing — architecture, AI, security, connectors.
+  - name: Security disclosure
+    url: https://github.com/sanniheruwala/QueryCanvasAI/security/policy
+    about: Reporting a vulnerability — please do not open a public issue.
