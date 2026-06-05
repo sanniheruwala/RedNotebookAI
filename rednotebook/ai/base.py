@@ -15,7 +15,7 @@ class DataFrameSchema(BaseModel):
     row_count: int = 0
 
     @classmethod
-    def from_query_result(cls, result: Any) -> "DataFrameSchema":
+    def from_query_result(cls, result: Any) -> DataFrameSchema:
         cols = [
             {"name": c.name, "data_type": c.data_type}
             for c in getattr(result, "columns", [])

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 # Statements that mutate or affect server state.
 DANGEROUS_KEYWORDS: frozenset[str] = frozenset(
@@ -47,7 +47,7 @@ SAFE_LEADING_KEYWORDS: frozenset[str] = frozenset(
 )
 
 
-class SQLGuardVerdict(str, Enum):
+class SQLGuardVerdict(StrEnum):
     """Outcome of evaluating a SQL statement."""
 
     ALLOWED = "allowed"

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class CellType(str, Enum):
+class CellType(StrEnum):
     """Supported notebook cell types."""
 
     MARKDOWN = "markdown"

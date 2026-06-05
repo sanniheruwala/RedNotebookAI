@@ -4,7 +4,7 @@ import pytest
 
 pytest.importorskip("pydantic")
 
-from rednotebook.knowledge.models import KnowledgeSource, SourceType  # noqa: E402
+from rednotebook.knowledge.models import SourceType  # noqa: E402
 from rednotebook.knowledge.source_builder import (  # noqa: E402
     build_markdown_source,
     build_sql_source,

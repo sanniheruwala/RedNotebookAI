@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Type
-
 from rednotebook.ai.base import AIProvider
 from rednotebook.config.settings import Settings, get_settings
 
-_REGISTRY: dict[str, Type[AIProvider]] = {}
+_REGISTRY: dict[str, type[AIProvider]] = {}
 
 
-def register_provider(name: str, provider_class: Type[AIProvider]) -> None:
+def register_provider(name: str, provider_class: type[AIProvider]) -> None:
     _REGISTRY[name.lower()] = provider_class
 
 

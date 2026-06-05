@@ -16,7 +16,6 @@ from rednotebook.ai.base import (
 )
 from rednotebook.ai.mock import MockAIProvider
 from rednotebook.ai.prompts import (
-    CHART_SUGGESTION_SYSTEM,
     INFOGRAPHIC_BRIEF_SYSTEM,
     RESULT_SUMMARY_SYSTEM,
     SQL_EXPLAIN_SYSTEM,

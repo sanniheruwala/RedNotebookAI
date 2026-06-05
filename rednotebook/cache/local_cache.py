@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +40,7 @@ class LocalResultCache:
             "row_count": result.row_count,
             "duration_seconds": result.duration_seconds,
             "truncated": result.truncated,
-            "stored_at": datetime.now(timezone.utc).isoformat(),
+            "stored_at": datetime.now(UTC).isoformat(),
         }
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
         try:

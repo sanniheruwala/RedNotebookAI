@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { BookMarked, FileText, Image, Loader2, Plus, Sparkles } from "lucide-react";
+import { BookMarked, FileText, Image as ImageIcon, Loader2, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -119,7 +119,7 @@ export function KnowledgePanel() {
 
       <div className="border-t p-3">
         <Button className="w-full" size="sm" onClick={() => generateInfographic.mutate()} disabled={generateInfographic.isPending}>
-          {generateInfographic.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Image className="h-4 w-4" />}
+          {generateInfographic.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
           Generate infographic
         </Button>
       </div>

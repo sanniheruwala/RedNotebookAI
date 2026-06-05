@@ -3,22 +3,22 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _uid() -> str:
     return uuid.uuid4().hex
 
 
-class SourceType(str, Enum):
+class SourceType(StrEnum):
     SQL_QUERY = "sql_query"
     QUERY_RESULT = "query_result"
     CHART = "chart"

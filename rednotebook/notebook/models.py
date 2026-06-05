@@ -7,8 +7,8 @@ the serialized form is stable and forward-compatible.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Annotated, Any, Literal, Union
+from datetime import UTC, datetime
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,7 +16,7 @@ from rednotebook.notebook.cells import CellType
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _uid() -> str:
@@ -95,7 +95,7 @@ class KnowledgeNoteCell(_CellBase):
 
 
 Cell = Annotated[
-    Union[MarkdownCell, SQLCell, AIPromptCell, VisualizationCell, KnowledgeNoteCell],
+    MarkdownCell | SQLCell | AIPromptCell | VisualizationCell | KnowledgeNoteCell,
     Field(discriminator="cell_type"),
 ]
 
@@ -121,7 +121,7 @@ class Notebook(BaseModel):
 
     # ----- Immutable mutation helpers ----------------------------------------
     # Every operation returns a NEW Notebook — callers must replace their handle.
-    def add_cell(self, cell: Cell, *, position: int | None = None) -> "Notebook":
+    def add_cell(self, cell: Cell, *, position: int | None = None) -> Notebook:
         cells = list(self.cells)
         if position is None or position >= len(cells):
             cells.append(cell)
@@ -129,15 +129,15 @@ class Notebook(BaseModel):
             cells.insert(max(0, position), cell)
         return self.model_copy(update={"cells": cells, "updated_at": _utcnow()})
 
-    def remove_cell(self, cell_id: str) -> "Notebook":
+    def remove_cell(self, cell_id: str) -> Notebook:
         cells = [c for c in self.cells if c.id != cell_id]
         return self.model_copy(update={"cells": cells, "updated_at": _utcnow()})
 
-    def replace_cell(self, cell: Cell) -> "Notebook":
+    def replace_cell(self, cell: Cell) -> Notebook:
         cells = [(cell if c.id == cell.id else c) for c in self.cells]
         return self.model_copy(update={"cells": cells, "updated_at": _utcnow()})
 
-    def move_cell(self, cell_id: str, direction: Literal["up", "down"]) -> "Notebook":
+    def move_cell(self, cell_id: str, direction: Literal["up", "down"]) -> Notebook:
         cells = list(self.cells)
         idx = next((i for i, c in enumerate(cells) if c.id == cell_id), None)
         if idx is None:
@@ -148,7 +148,7 @@ class Notebook(BaseModel):
         cells[idx], cells[target] = cells[target], cells[idx]
         return self.model_copy(update={"cells": cells, "updated_at": _utcnow()})
 
-    def duplicate_cell(self, cell_id: str) -> "Notebook":
+    def duplicate_cell(self, cell_id: str) -> Notebook:
         idx = next((i for i, c in enumerate(self.cells) if c.id == cell_id), None)
         if idx is None:
             return self

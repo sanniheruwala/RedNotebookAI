@@ -8,7 +8,7 @@ and dependency-free.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +44,7 @@ class InternalKnowledgeStore:
 
     def _write(self, notebook_id: str, data: dict[str, Any]) -> None:
         path = self._path(notebook_id)
-        data["notebook"]["updated_at"] = datetime.now(timezone.utc).isoformat()
+        data["notebook"]["updated_at"] = datetime.now(UTC).isoformat()
         path.write_text(
             json.dumps(data, indent=2, default=_json_default), encoding="utf-8"
         )
