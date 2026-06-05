@@ -15,6 +15,21 @@ stays lightweight, open-source, and developer-friendly.
 
 ---
 
+## Where can I run this?
+
+RedNotebook AI is **local-first**. Today:
+
+| Tier | Supported? |
+|------|------------|
+| 🟢 **Your laptop** (`localhost`) | ✅ Primary use case |
+| 🟡 **Single team behind VPN / private network** | ✅ With the [deployment hardening checklist](docs/deployment.md#tier-2--single-team-behind-a-vpn--private-network) |
+| 🔴 **Public internet, multi-user SaaS** | ❌ Not yet — no auth, no per-user namespacing, no rate limiting. See [Phase 4 roadmap](docs/roadmap.md). |
+
+See [`docs/deployment.md`](docs/deployment.md) for the full security model
+and the Tier 2 hardening checklist before sharing an instance with a team.
+
+---
+
 ## Features (Phase 1 MVP)
 
 - **Trino HTTPS connector** with test, browse, and run support
