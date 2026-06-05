@@ -67,7 +67,7 @@ export function ProfileView({ result }: { result: QueryResultPayload }) {
                 <td className="px-3 py-1.5">{c.distinct_count}</td>
                 <td className="px-3 py-1.5">{c.min ?? "—"}</td>
                 <td className="px-3 py-1.5">{c.max ?? "—"}</td>
-                <td className="px-3 py-1.5">{c.mean !== null ? c.mean.toFixed(2) : "—"}</td>
+                <td className="px-3 py-1.5">{c.mean != null ? c.mean.toFixed(2) : "—"}</td>
               </tr>
             ))}
           </tbody>

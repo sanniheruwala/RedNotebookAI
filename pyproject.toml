@@ -57,6 +57,9 @@ ignore = ["E501"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-q"
+filterwarnings = [
+    "ignore:Field name \"schema\".*shadows an attribute in parent.*:UserWarning",
+]
 
 [tool.mypy]
 python_version = "3.11"
