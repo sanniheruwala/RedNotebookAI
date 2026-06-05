@@ -17,9 +17,14 @@ export function MetadataExplorer() {
 
   if (!connection?.host) {
     return (
-      <div className="px-4 py-6 text-sm text-muted-foreground">
-        <Database className="mb-2 h-5 w-5" />
-        Configure a Trino connection to browse catalogs, schemas, and tables.
+      <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
+          <Database className="h-5 w-5 text-primary" />
+        </div>
+        <div className="mt-1 text-sm font-medium">Browse your data</div>
+        <p className="text-balance text-xs leading-relaxed text-muted-foreground">
+          Configure a Trino connection to browse catalogs, schemas, and tables.
+        </p>
       </div>
     );
   }

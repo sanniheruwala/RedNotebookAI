@@ -28,6 +28,7 @@ type NotebookStore = {
   removeCell: (id: string) => void;
   duplicateCell: (id: string) => void;
   moveCell: (id: string, direction: "up" | "down") => void;
+  reorderCells: (orderedIds: string[]) => void;
   selectCell: (id: string | null) => void;
   setCellResult: (id: string, result: CellResult) => void;
   setChartConfig: (id: string, chartConfig: ChartConfig) => void;
@@ -146,6 +147,18 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
       if (idx < 0 || target < 0 || target >= cells.length) return state;
       [cells[idx], cells[target]] = [cells[target], cells[idx]];
       return { notebook: { ...state.notebook, cells } };
+    }),
+
+  reorderCells: (orderedIds) =>
+    set((state) => {
+      const byId = new Map(state.notebook.cells.map((c) => [c.id, c]));
+      const next = orderedIds.map((id) => byId.get(id)).filter(Boolean) as Cell[];
+      // Preserve any cells not present in orderedIds (defensive)
+      const seen = new Set(orderedIds);
+      for (const c of state.notebook.cells) {
+        if (!seen.has(c.id)) next.push(c);
+      }
+      return { notebook: { ...state.notebook, cells: next } };
     }),
 
   selectCell: (id) => set({ selectedCellId: id }),
