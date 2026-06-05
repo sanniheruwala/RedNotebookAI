@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  rednotebook:
+    build: .
+    container_name: rednotebook-ai
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./local_data:/app/local_data
+      - ./artifacts:/app/artifacts
+      - ./exports:/app/exports
+    restart: unless-stopped

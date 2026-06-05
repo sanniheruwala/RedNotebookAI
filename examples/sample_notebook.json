@@ -1,0 +1,28 @@
+{
+  "id": "samplenotebook0001",
+  "metadata": {
+    "title": "Sample analytics notebook",
+    "description": "A starter notebook that uses Trino's TPCH connector.",
+    "tags": ["sample", "trino", "tpch"],
+    "author": null,
+    "schema_version": 1
+  },
+  "cells": [
+    {
+      "id": "cell0001",
+      "cell_type": "markdown",
+      "source": "# Sample notebook\n\nThis notebook explores the public `tpch.sf1` dataset shipped with Trino."
+    },
+    {
+      "id": "cell0002",
+      "cell_type": "sql",
+      "connection_name": "default",
+      "sql": "SELECT nationkey, COUNT(*) AS customers\nFROM tpch.sf1.customer\nGROUP BY 1\nORDER BY customers DESC\nLIMIT 25"
+    },
+    {
+      "id": "cell0003",
+      "cell_type": "ai_prompt",
+      "prompt": "Show the top 5 customers by total order amount in 1995."
+    }
+  ]
+}
