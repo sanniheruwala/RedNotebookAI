@@ -27,7 +27,6 @@ from rednotebook.server.schemas import (
     TestConnectionResponse,
 )
 
-
 router = APIRouter()
 
 
