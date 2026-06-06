@@ -136,10 +136,7 @@ class SQLAlchemyConnector(BaseConnector):
 
         engine = self._engine_or_raise()
         insp = sa.inspect(engine)
-        try:
-            return sorted(insp.get_schema_names())
-        except Exception:
-            return []
+        return sorted(insp.get_schema_names())
 
     def list_tables(self, catalog: str, schema: str) -> list[TableInfo]:
         import sqlalchemy as sa

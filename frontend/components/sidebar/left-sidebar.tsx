@@ -52,7 +52,7 @@ export function LeftSidebar() {
           <ConnectionDialog>
             <Button size="sm" variant="default" className="h-8 w-full gap-2 text-xs">
               <Database className="h-3.5 w-3.5" />
-              Configure Trino
+              Configure connection
             </Button>
           </ConnectionDialog>
         </div>

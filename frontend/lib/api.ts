@@ -175,15 +175,19 @@ export const api = {
       { method: "POST", body: JSON.stringify(conn) }
     ),
 
-  runQuery: (body: {
-    connection: Connection;
-    sql: string;
-    limit?: number | null;
-    confirm_write?: boolean;
-  }) =>
+  runQuery: (
+    body: {
+      connection: Connection;
+      sql: string;
+      limit?: number | null;
+      confirm_write?: boolean;
+    },
+    signal?: AbortSignal,
+  ) =>
     http<RunQueryResponse>("/query/run", {
       method: "POST",
       body: JSON.stringify(body),
+      signal,
     }),
 
   explainQuery: (body: { connection: Connection; sql: string }) =>

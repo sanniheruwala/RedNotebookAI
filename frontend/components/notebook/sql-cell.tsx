@@ -16,6 +16,7 @@ import {
   Loader2,
   Play,
   Sparkles,
+  Square,
   Trash2,
   Wand2,
 } from "lucide-react";
@@ -48,23 +49,55 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   const { resolvedTheme } = useTheme();
   const [collapsed, setCollapsed] = React.useState(false);
 
+  // AbortController for the in-flight query — re-created per run so a
+  // previous abort doesn't poison the next attempt. Stored in a ref so the
+  // Stop button has a stable handle to .abort() on click.
+  const abortRef = React.useRef<AbortController | null>(null);
+
   const run = useMutation({
     mutationFn: async () => {
       if (!isConfigured(connection) || !connection) {
         throw new Error("Configure a connection first");
       }
-      setCellResult(cell.id, { running: true, error: null });
-      return api.runQuery({ connection, sql: cell.sql, limit: cell.limit ?? undefined });
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setCellResult(cell.id, {
+        running: true,
+        error: null,
+        startedAt: Date.now(),
+      });
+      return api.runQuery(
+        { connection, sql: cell.sql, limit: cell.limit ?? undefined },
+        controller.signal,
+      );
     },
     onSuccess: (response) => {
       ingestRunResponse(cell.id, response);
       if (!response.ok) toast.error(response.error || "Query failed");
     },
     onError: (err: Error) => {
-      setCellResult(cell.id, { running: false, error: err.message });
-      toast.error(err.message);
+      // AbortController.abort() rejects the fetch with an AbortError. Treat
+      // that as a user-initiated stop, not a query failure.
+      const aborted =
+        err.name === "AbortError" ||
+        /aborted/i.test(err.message);
+      setCellResult(cell.id, {
+        running: false,
+        error: aborted ? null : err.message,
+        startedAt: null,
+      });
+      if (!aborted) toast.error(err.message);
     },
   });
+
+  const stop = React.useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
+
+  // Abort any in-flight query if the cell unmounts (e.g., notebook close).
+  React.useEffect(() => () => abortRef.current?.abort(), []);
 
   const explain = useMutation({
     mutationFn: () => api.aiExplainSQL({ sql: cell.sql, context: {} }),
@@ -99,6 +132,20 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   const isWarning = (cellResult?.guardReasons?.length ?? 0) > 0 && !hasError;
   const isRunning = run.isPending || cellResult?.running;
 
+  // Live timer that ticks every 100ms while the query is in flight. Uses a
+  // ref so the interval doesn't re-create on every render; clears on stop.
+  const startedAt = cellResult?.startedAt ?? null;
+  const [elapsedMs, setElapsedMs] = React.useState(0);
+  React.useEffect(() => {
+    if (!isRunning || !startedAt) {
+      setElapsedMs(0);
+      return;
+    }
+    setElapsedMs(Date.now() - startedAt);
+    const t = setInterval(() => setElapsedMs(Date.now() - startedAt), 100);
+    return () => clearInterval(t);
+  }, [isRunning, startedAt]);
+
   return (
     <div className="card-premium group/cell relative overflow-hidden">
       <div
@@ -124,7 +171,15 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             SQL
           </Badge>
-          {cellResult?.ranAt && hasResult && (
+          {isRunning && (
+            <span className="flex items-center gap-1.5 text-primary">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span className="tabular-nums">
+                {formatDuration(elapsedMs / 1000)}
+              </span>
+            </span>
+          )}
+          {!isRunning && cellResult?.ranAt && hasResult && (
             <span className="flex items-center gap-1.5 text-muted-foreground">
               <CheckCircle2 className="h-3 w-3 text-primary" />
               <span className="tabular-nums">
@@ -255,26 +310,43 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
             <div className="flex flex-wrap items-center gap-2 px-3 py-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    onClick={() => run.mutate()}
-                    disabled={isRunning}
-                    className="gap-1.5 shadow-sm shadow-primary/20"
-                  >
-                    {isRunning ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
+                  {isRunning ? (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={stop}
+                      className="gap-1.5 shadow-sm"
+                    >
+                      <Square className="h-3.5 w-3.5 fill-current" />
+                      Stop
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => run.mutate()}
+                      className="gap-1.5 shadow-sm shadow-primary/20"
+                    >
                       <Play className="h-4 w-4" />
-                    )}
-                    Run
-                  </Button>
+                      Run
+                    </Button>
+                  )}
                 </TooltipTrigger>
                 <TooltipContent className="flex items-center gap-1">
-                  Run cell <Kbd className="ml-1">⇧</Kbd>
-                  <Kbd>↵</Kbd>
-                  <span className="text-muted-foreground/60">or</span>
-                  <Kbd>⌘</Kbd>
-                  <Kbd>↵</Kbd>
+                  {isRunning ? (
+                    <span className="text-balance">
+                      Stops the in-flight request. The underlying database
+                      may keep executing the query until it finishes on its
+                      own.
+                    </span>
+                  ) : (
+                    <>
+                      Run cell <Kbd className="ml-1">⇧</Kbd>
+                      <Kbd>↵</Kbd>
+                      <span className="text-muted-foreground/60">or</span>
+                      <Kbd>⌘</Kbd>
+                      <Kbd>↵</Kbd>
+                    </>
+                  )}
                 </TooltipContent>
               </Tooltip>
               <Separator orientation="vertical" className="h-5" />

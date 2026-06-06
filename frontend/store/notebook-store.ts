@@ -15,6 +15,8 @@ type CellResult = {
   error?: string | null;
   guardReasons?: string[];
   running?: boolean;
+  /** Wall-clock ms when the in-flight query started, drives the live timer. */
+  startedAt?: number | null;
   ranAt?: number;
 };
 
@@ -324,6 +326,7 @@ export const useNotebookStore = create<NotebookStore>()(
           error: response.error ?? null,
           guardReasons: response.guard.reasons,
           running: false,
+          startedAt: null,
           ranAt: Date.now(),
         });
       },

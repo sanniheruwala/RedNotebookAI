@@ -18,6 +18,14 @@
 - ✅ Per-user namespacing (auth, GitHub OAuth, API tokens, admin invites)
 - ✅ AG Grid for power-user result navigation
 - ✅ Knowledge layer as a first-class slide-in panel with full CRUD
+- ✅ Stop button + live elapsed-time timer on the SQL cell (v0.7.6) —
+       client-side abort; proper server-side cancel via query-id tracking
+       is still to do.
+- ✅ Metadata panel sized correctly so the tree is visible alongside the
+       notebooks list, plus auto-expand for single-catalog/single-schema
+       connectors (v0.7.6).
+- 🟡 Server-side query cancellation via query-id tracking (DuckDB
+       `interrupt()`, Trino `cancel()`, Postgres `pg_cancel_backend`).
 - 🟡 Better profiling (histograms, mutual-info hints)
 - 🟡 Better infographic templates + PDF/PNG export (kaleido + headless Chrome)
 - 🟡 Python cell type (where notebook host allows)

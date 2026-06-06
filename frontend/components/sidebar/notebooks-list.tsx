@@ -56,7 +56,10 @@ export function NotebooksList() {
   const openTabSet = new Set(tabs);
 
   return (
-    <div className="flex h-full flex-col">
+    // No `h-full` here: the parent left sidebar is a flex column, and
+    // letting Notebooks claim the full height was pushing the Metadata
+    // section and its tree below the viewport.
+    <div className="flex flex-shrink-0 flex-col">
       <div className="flex items-center justify-between gap-2 border-b bg-muted/20 px-4 py-2">
         <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Notebooks

@@ -24,8 +24,8 @@ export function MetadataExplorer() {
         </div>
         <div className="mt-1 text-sm font-medium">Browse your data</div>
         <p className="text-balance text-xs leading-relaxed text-muted-foreground">
-          Configure a connection (DuckDB or Trino) to browse catalogs,
-          schemas, and tables.
+          Pick a connector (DuckDB, Trino, Postgres, MySQL, BigQuery, …) to
+          browse catalogs, schemas, and tables.
         </p>
       </div>
     );
@@ -63,10 +63,26 @@ function CatalogsList({ connection, filter }: { connection: Connection; filter: 
     return <ErrorRow message={(catalogs.error as Error).message} onRetry={() => catalogs.refetch()} />;
   }
 
+  const list = catalogs.data?.catalogs ?? [];
+  if (!list.length) {
+    return <EmptyRow message="No catalogs available on this connection." />;
+  }
+
+  // Single-catalog connectors (Postgres, MySQL, Snowflake, …) get the
+  // catalog node auto-expanded — otherwise the user lands on one tiny
+  // collapsed chevron and has to guess to click it before anything useful
+  // shows up.
+  const autoOpen = list.length === 1;
   return (
     <div className="space-y-0.5">
-      {catalogs.data?.catalogs.map((catalog) => (
-        <CatalogNode key={catalog} connection={connection} catalog={catalog} filter={filter} />
+      {list.map((catalog) => (
+        <CatalogNode
+          key={catalog}
+          connection={connection}
+          catalog={catalog}
+          filter={filter}
+          defaultOpen={autoOpen}
+        />
       ))}
     </div>
   );
@@ -76,12 +92,14 @@ function CatalogNode({
   connection,
   catalog,
   filter,
+  defaultOpen = false,
 }: {
   connection: Connection;
   catalog: string;
   filter: string;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(defaultOpen);
   return (
     <div>
       <TreeRow icon={<Database className="h-3.5 w-3.5" />} open={open} onToggle={() => setOpen((o) => !o)}>
@@ -107,12 +125,28 @@ function SchemasList({
   });
 
   if (schemas.isPending) return <Loading label="Loading schemas..." className="pl-6" />;
-  if (schemas.error) return <ErrorRow className="pl-6" message={(schemas.error as Error).message} onRetry={() => schemas.refetch()} />;
+  if (schemas.error)
+    return <ErrorRow className="pl-6" message={(schemas.error as Error).message} onRetry={() => schemas.refetch()} />;
 
+  const list = schemas.data?.schemas ?? [];
+  if (!list.length) {
+    return <EmptyRow className="pl-6" message="No schemas in this catalog." />;
+  }
+
+  // Same idea as catalogs: auto-open the only schema (typical for SQLite
+  // and many on-prem Postgres installs that only use `public`).
+  const autoOpen = list.length === 1;
   return (
     <div className="ml-3 border-l">
-      {schemas.data?.schemas.map((schema) => (
-        <SchemaNode key={schema} connection={connection} catalog={catalog} schema={schema} filter={filter} />
+      {list.map((schema) => (
+        <SchemaNode
+          key={schema}
+          connection={connection}
+          catalog={catalog}
+          schema={schema}
+          filter={filter}
+          defaultOpen={autoOpen}
+        />
       ))}
     </div>
   );
@@ -123,13 +157,15 @@ function SchemaNode({
   catalog,
   schema,
   filter,
+  defaultOpen = false,
 }: {
   connection: Connection;
   catalog: string;
   schema: string;
   filter: string;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(defaultOpen);
   return (
     <div>
       <TreeRow icon={<FolderTree className="h-3.5 w-3.5" />} open={open} onToggle={() => setOpen((o) => !o)} indent={1}>
@@ -246,6 +282,14 @@ function ErrorRow({
       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={onRetry}>
         <RefreshCw className="h-3 w-3" />
       </Button>
+    </div>
+  );
+}
+
+function EmptyRow({ message, className }: { message: string; className?: string }) {
+  return (
+    <div className={`px-2 py-1 text-xs italic text-muted-foreground ${className ?? ""}`}>
+      {message}
     </div>
   );
 }
