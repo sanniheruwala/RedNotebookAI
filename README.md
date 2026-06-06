@@ -102,7 +102,7 @@ RedNotebook AI is local-first. Today:
 | Tier | Supported? |
 |------|------------|
 | 🟢 **Your laptop** (`localhost`) | ✅ Primary use case |
-| 🟡 **Single team behind VPN / private network** | ✅ With the [hardening checklist](docs/deployment.md#tier-2--single-team-behind-a-vpn--private-network) |
+| 🟢 **Single team behind VPN / private network** | ✅ With the [hardening checklist](docs/deployment.md#tier-2--single-team-behind-a-vpn--private-network) |
 | 🔴 **Public internet, multi-user SaaS** | ⚠️ Auth landed; rate-limiting + audit log are on the [Phase 4 roadmap](docs/roadmap.md). |
 
 See [`docs/deployment.md`](docs/deployment.md) for the full security model.
