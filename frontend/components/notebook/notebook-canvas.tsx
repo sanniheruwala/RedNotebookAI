@@ -30,6 +30,8 @@ import {
 import { SQLCell } from "@/components/notebook/sql-cell";
 import { MarkdownCell } from "@/components/notebook/markdown-cell";
 import { AIPromptCell } from "@/components/notebook/ai-prompt-cell";
+import { VisualizationCell } from "@/components/notebook/visualization-cell";
+import { NotebookKnowledge } from "@/components/notebook/notebook-knowledge";
 import type { Cell, CellType } from "@/lib/types";
 
 export function NotebookCanvas() {
@@ -119,6 +121,8 @@ export function NotebookCanvas() {
           </DndContext>
 
           <CellInserter onAdd={(t) => addCell(t)} />
+
+          <NotebookKnowledge />
         </div>
       </ScrollArea>
     </main>
@@ -171,9 +175,11 @@ function SortableCell({
       {cell.cell_type === "sql" && <SQLCell cell={cell} />}
       {cell.cell_type === "markdown" && <MarkdownCell cell={cell} />}
       {cell.cell_type === "ai_prompt" && <AIPromptCell cell={cell} />}
+      {cell.cell_type === "visualization" && <VisualizationCell cell={cell} />}
       {cell.cell_type !== "sql" &&
         cell.cell_type !== "markdown" &&
-        cell.cell_type !== "ai_prompt" && (
+        cell.cell_type !== "ai_prompt" &&
+        cell.cell_type !== "visualization" && (
           <div className="rounded-2xl border bg-card p-3 text-xs text-muted-foreground">
             Unsupported cell type: {cell.cell_type}
           </div>

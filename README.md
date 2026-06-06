@@ -64,31 +64,6 @@ cp .env.example .env  # edit as needed
 docker compose up -d
 ```
 
-### Desktop app
-
-Grab a one-click installer from the latest [GitHub Release](https://github.com/sanniheruwala/RedNotebookAI/releases):
-
-| Platform | Artifact | Notes |
-|----------|----------|-------|
-| **macOS** | `rednotebook-macos.dmg` | Drag to Applications, open, allow in System Settings the first time. |
-| **Windows** | `rednotebook-windows.zip` | Extract and run `RedNotebook AI.exe`. |
-| **Linux** | `rednotebook-linux.tar.gz` | Extract and run `./RedNotebook AI/RedNotebook AI`. |
-
-The app boots a local FastAPI server, opens your default browser, and stores notebooks in your platform-standard application-support directory.
-
-#### First-launch warnings
-
-The binaries aren't signed with paid developer certificates yet, so the OS will warn you the first time you open the app. It's not malware — it's just that we haven't paid Apple/Microsoft for distribution-trust signing yet.
-
-- **macOS:** *"Apple could not verify 'RedNotebook AI' is free of malware…"*
-  - **Right-click** the app → **Open** → click **Open** in the dialog (only the first time)
-  - or: System Settings → **Privacy & Security** → **Open Anyway** for "RedNotebook AI"
-  - or: `xattr -d com.apple.quarantine "/Applications/RedNotebook AI.app"`
-- **Windows:** *"Windows protected your PC"* (SmartScreen)
-  - Click **More info** → **Run anyway**.
-
-A future release will be code-signed + notarized to remove these warnings entirely.
-
 ### Python
 
 ```bash

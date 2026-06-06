@@ -45,10 +45,7 @@ jobs:
 
             **Python (any OS):** download the attached `*.whl` and `pip install` it.
 
-            **Desktop apps:** download the platform-specific artifact below.
-            - **macOS:** `rednotebook-macos.dmg`
-            - **Windows:** `rednotebook-windows.zip` (extract and run `RedNotebook AI.exe`)
-            - **Linux:** `rednotebook-linux.tar.gz` (extract and run `RedNotebook AI`)
+            See the [README](https://github.com/${{ github.repository_owner }}/RedNotebookAI#install) for full instructions.
 
   # ----------------------------------------------------------------------
   # Docker image to GHCR (multi-arch)
@@ -114,93 +111,8 @@ jobs:
           files: dist/*
           fail_on_unmatched_files: true
 
-  # ----------------------------------------------------------------------
-  # Desktop binaries: macOS, Windows, Linux (PyInstaller one-folder build)
-  # Each matrix arm attaches its packaged binary straight to the Release.
-  # ----------------------------------------------------------------------
-  desktop:
-    name: Desktop binary (${{ matrix.os }})
-    needs: [create-release]
-    if: github.ref_type == 'tag'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            artifact: rednotebook-macos.dmg
-            label: macOS
-          - os: windows-latest
-            artifact: rednotebook-windows.zip
-            label: Windows
-          - os: ubuntu-latest
-            artifact: rednotebook-linux.tar.gz
-            label: Linux
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          # Pillow lets PyInstaller auto-convert icon formats when needed.
-          pip install -e . pyinstaller==6.10.* Pillow
-
-      - name: Build frontend (static export)
-        working-directory: frontend
-        env:
-          NEXT_OUTPUT: export
-          NEXT_TELEMETRY_DISABLED: "1"
-        run: |
-          npm ci --no-audit --no-fund
-          npm run build
-
-      - name: PyInstaller
-        run: pyinstaller packaging/rednotebook.spec --noconfirm
-
-      # ----- Package the binary into a platform-appropriate archive ------
-      - name: Package (macOS DMG)
-        if: matrix.os == 'macos-latest'
-        run: |
-          brew install create-dmg
-          mkdir -p out
-          create-dmg \
-            --volname "RedNotebook AI" \
-            --window-pos 200 120 \
-            --window-size 600 380 \
-            --icon-size 100 \
-            --icon "RedNotebook AI.app" 175 190 \
-            --app-drop-link 425 190 \
-            --no-internet-enable \
-            out/rednotebook-macos.dmg \
-            "dist/RedNotebook AI.app" || \
-          hdiutil create -volname "RedNotebook AI" -srcfolder "dist/RedNotebook AI.app" \
-            -ov -format UDZO out/rednotebook-macos.dmg
-
-      - name: Package (Windows zip)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force out
-          Compress-Archive -Path "dist/RedNotebook AI" -DestinationPath "out/rednotebook-windows.zip"
-
-      - name: Package (Linux tar.gz)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          mkdir -p out
-          tar -C dist -czf out/rednotebook-linux.tar.gz "RedNotebook AI"
-
-      - name: Attach to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: out/${{ matrix.artifact }}
-          fail_on_unmatched_files: true
+  # Desktop binaries (PyInstaller DMG/EXE/tarball) used to live here but
+  # were dropped in v0.2.0: they shipped as ~100 MB single-window-browser
+  # wrappers that added zero value over `docker run` or `pip install`.
+  # If a real native shell (Tauri / Electron) lands later, reintroduce
+  # the matrix at that point.

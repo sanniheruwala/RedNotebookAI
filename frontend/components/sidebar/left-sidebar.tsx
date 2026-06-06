@@ -13,7 +13,7 @@ export function LeftSidebar() {
   const connected = !!connection?.host;
 
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col border-r bg-background/40">
+    <div className="flex h-full w-full flex-col">
       <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
         <div className="min-w-0">
           <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -56,6 +56,6 @@ export function LeftSidebar() {
           </ConnectionDialog>
         </div>
       )}
-    </aside>
+    </div>
   );
 }

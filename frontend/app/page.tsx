@@ -7,10 +7,20 @@ import { RightSidebar } from "@/components/panels/right-sidebar";
 import { NotebookCanvas } from "@/components/notebook/notebook-canvas";
 import { NotebookTabs } from "@/components/notebook/notebook-tabs";
 import { CommandPalette } from "@/components/command-palette";
+import { ResizableSidebar } from "@/components/resizable-sidebar";
 import { useRequireAuth } from "@/hooks/use-auth";
+import { useUIStore } from "@/store/ui-store";
 
 export default function HomePage() {
   const status = useRequireAuth();
+  const leftWidth = useUIStore((s) => s.leftWidth);
+  const rightWidth = useUIStore((s) => s.rightWidth);
+  const leftCollapsed = useUIStore((s) => s.leftCollapsed);
+  const rightCollapsed = useUIStore((s) => s.rightCollapsed);
+  const setLeftWidth = useUIStore((s) => s.setLeftWidth);
+  const setRightWidth = useUIStore((s) => s.setRightWidth);
+  const toggleLeft = useUIStore((s) => s.toggleLeft);
+  const toggleRight = useUIStore((s) => s.toggleRight);
 
   if (status.isPending) {
     return (
@@ -21,7 +31,6 @@ export default function HomePage() {
   }
 
   if (status.data?.auth_enabled && !status.data.authenticated) {
-    // Redirect already dispatched; show a quick spinner while it lands.
     return (
       <main className="app-mesh grid min-h-screen place-items-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -32,15 +41,33 @@ export default function HomePage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <Topbar />
-      <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
-        <LeftSidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="group/layout flex h-[calc(100vh-3.5rem)] overflow-hidden">
+        <ResizableSidebar
+          side="left"
+          width={leftWidth}
+          collapsed={leftCollapsed}
+          onResize={setLeftWidth}
+          onToggle={toggleLeft}
+        >
+          <LeftSidebar />
+        </ResizableSidebar>
+
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <NotebookTabs />
           <div className="flex flex-1 overflow-hidden">
             <NotebookCanvas />
           </div>
         </div>
-        <RightSidebar />
+
+        <ResizableSidebar
+          side="right"
+          width={rightWidth}
+          collapsed={rightCollapsed}
+          onResize={setRightWidth}
+          onToggle={toggleRight}
+        >
+          <RightSidebar />
+        </ResizableSidebar>
       </div>
       <CommandPalette />
     </div>
