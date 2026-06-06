@@ -75,7 +75,6 @@ exports/
 secrets/
 
 # Claude Code local settings + scratch
-.claude/settings.local.json
-.claude/cache/
+.claude/
 CLAUDE.md
 claude.md
