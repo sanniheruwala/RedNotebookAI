@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from rednotebook import __version__
 from rednotebook.config.settings import get_settings
+from rednotebook.migrations.auto_namespace import run_namespace_migration
+from rednotebook.server.dependencies import require_user
 from rednotebook.server.routers import (
     ai,
+    auth,
     charts,
     connections,
     health,
@@ -36,6 +39,17 @@ except Exception:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
+    # Move existing un-namespaced data under the default user's directory.
+    # Idempotent: skips if the destination already has content.
+    try:
+        run_namespace_migration(
+            notebook_dir=settings.notebook_storage_dir,
+            knowledge_dir=settings.knowledge_storage_dir,
+        )
+    except Exception:  # pragma: no cover - best-effort migration
+        pass
+
     app = FastAPI(
         title=settings.app_name,
         version=__version__,
@@ -45,20 +59,61 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=False,
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
+    # Auth-protected dependency. Bypassed when AUTH_ENABLED is false.
+    protected = [Depends(require_user)]
+
     app.include_router(health.router)
-    app.include_router(connections.router, prefix="/api/connections", tags=["connections"])
-    app.include_router(metadata.router, prefix="/api/metadata", tags=["metadata"])
-    app.include_router(query.router, prefix="/api/query", tags=["query"])
-    app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
-    app.include_router(charts.router, prefix="/api/charts", tags=["charts"])
-    app.include_router(knowledge.router, prefix="/api/knowledge", tags=["knowledge"])
-    app.include_router(infographics.router, prefix="/api/infographics", tags=["infographics"])
-    app.include_router(notebooks.router, prefix="/api/notebooks", tags=["notebooks"])
+    app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+    app.include_router(
+        connections.router,
+        prefix="/api/connections",
+        tags=["connections"],
+        dependencies=protected,
+    )
+    app.include_router(
+        metadata.router,
+        prefix="/api/metadata",
+        tags=["metadata"],
+        dependencies=protected,
+    )
+    app.include_router(
+        query.router,
+        prefix="/api/query",
+        tags=["query"],
+        dependencies=protected,
+    )
+    app.include_router(
+        ai.router, prefix="/api/ai", tags=["ai"], dependencies=protected
+    )
+    app.include_router(
+        charts.router,
+        prefix="/api/charts",
+        tags=["charts"],
+        dependencies=protected,
+    )
+    app.include_router(
+        knowledge.router,
+        prefix="/api/knowledge",
+        tags=["knowledge"],
+        dependencies=protected,
+    )
+    app.include_router(
+        infographics.router,
+        prefix="/api/infographics",
+        tags=["infographics"],
+        dependencies=protected,
+    )
+    app.include_router(
+        notebooks.router,
+        prefix="/api/notebooks",
+        tags=["notebooks"],
+        dependencies=protected,
+    )
     return app
 
 

@@ -67,6 +67,15 @@ class Settings(BaseSettings):
     artifacts_dir: str = "artifacts"
     exports_dir: str = "exports"
 
+    # Auth
+    auth_enabled: bool = False
+    auth_storage_dir: str = "local_data/auth"
+    secret_key: str = "change-me-in-production-use-a-long-random-string"
+    session_ttl_seconds: int = 60 * 60 * 24 * 7
+    cookie_secure: bool = False  # set True behind HTTPS reverse proxy
+    cookie_samesite: str = "lax"
+    allow_self_signup: bool = False
+
     # NotebookLM Enterprise (experimental, off by default)
     notebooklm_enterprise_enabled: bool = False
     google_cloud_project: str | None = None

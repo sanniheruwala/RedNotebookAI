@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandMark } from "@/components/brand-mark";
+import { UserMenu } from "@/components/topbar/user-menu";
 import { useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
 import { api } from "@/lib/api";
@@ -181,6 +182,7 @@ export function Topbar() {
           <Settings2 className="h-4 w-4" />
         </Button>
         <ThemeToggle />
+        <UserMenu />
       </div>
     </header>
   );

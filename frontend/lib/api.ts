@@ -1,9 +1,12 @@
 import type {
+  AuthStatus,
+  AuthUser,
   ChartConfig,
   ChartSuggestion,
   ColumnInfo,
   GuardInfo,
   InfographicBrief,
+  InvitePublic,
   KnowledgeNotebook,
   KnowledgeSource,
   Notebook,
@@ -14,20 +17,64 @@ import type {
 
 const API_BASE = "/api";
 
+export class HttpError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string
+  ) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
+
 async function http<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
     headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
     ...init,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(text || `Request failed: ${res.status}`);
+    let detail = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed?.detail) detail = String(parsed.detail);
+    } catch {
+      // text wasn't JSON; keep raw
+    }
+    throw new HttpError(res.status, detail || `Request failed: ${res.status}`);
   }
   return (await res.json()) as T;
 }
 
 export const api = {
   health: () => http<{ ok: boolean; version: string; ai_provider: string }>("/health"),
+
+  // ----- Auth ------------------------------------------------------------
+  authStatus: () => http<AuthStatus>("/auth/status"),
+  me: () => http<AuthUser>("/auth/me"),
+  login: (body: { email: string; password: string }) =>
+    http<{ ok: boolean; user: AuthUser }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  register: (body: {
+    email: string;
+    name: string;
+    password: string;
+    invite_token?: string | null;
+  }) =>
+    http<{ ok: boolean; user: AuthUser; is_bootstrap: boolean }>(
+      "/auth/register",
+      { method: "POST", body: JSON.stringify(body) }
+    ),
+  logout: () => http<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+  createInvite: (body: { email?: string | null; role?: "admin" | "member" }) =>
+    http<InvitePublic>("/auth/invite", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listInvites: () => http<InvitePublic[]>("/auth/invites"),
 
   testConnection: (conn: TrinoConnection) =>
     http<{ ok: boolean; message: string; duration_seconds?: number }>("/connections/test", {

@@ -1,3 +1,29 @@
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "member";
+  provider: "local" | "github" | "oidc";
+  is_active: boolean;
+  is_admin: boolean;
+};
+
+export type AuthStatus = {
+  auth_enabled: boolean;
+  allow_self_signup: boolean;
+  is_bootstrap: boolean;
+  authenticated: boolean;
+  user: AuthUser | null;
+};
+
+export type InvitePublic = {
+  token: string;
+  email: string | null;
+  role: "admin" | "member";
+  expires_at: string;
+  accepted_at: string | null;
+};
+
 export type TrinoConnection = {
   connection_name: string;
   host: string;
