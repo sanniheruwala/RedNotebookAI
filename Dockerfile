@@ -11,7 +11,16 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY frontend/ ./
 ENV NEXT_OUTPUT=export \
     NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+# next/font/google fetches Inter + JetBrains Mono from fonts.googleapis.com
+# at build time, and that can intermittently fail behind CI egress. Retry
+# the build a few times so a single transient blip doesn't sink the image.
+RUN for attempt in 1 2 3 4 5; do \
+        echo "frontend build attempt $attempt"; \
+        npm run build && break || { \
+            if [ "$attempt" = "5" ]; then exit 1; fi; \
+            echo "retrying in 5s..."; sleep 5; \
+        }; \
+    done
 
 # ---------- Stage 2: build the Python wheel ----------
 FROM python:3.12-slim AS python-build
