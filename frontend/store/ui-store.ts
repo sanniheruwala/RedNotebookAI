@@ -7,19 +7,18 @@ export const SIDEBAR_MAX = 560;
 export type UIStore = {
   commandPaletteOpen: boolean;
   leftWidth: number;
-  rightWidth: number;
   leftCollapsed: boolean;
-  rightCollapsed: boolean;
+  knowledgeOpen: boolean;
 
   toggleCommandPalette: () => void;
   setCommandPalette: (open: boolean) => void;
 
   setLeftWidth: (w: number) => void;
-  setRightWidth: (w: number) => void;
   toggleLeft: () => void;
-  toggleRight: () => void;
   setLeftCollapsed: (c: boolean) => void;
-  setRightCollapsed: (c: boolean) => void;
+
+  toggleKnowledge: () => void;
+  setKnowledgeOpen: (open: boolean) => void;
 };
 
 export const useUIStore = create<UIStore>()(
@@ -27,9 +26,8 @@ export const useUIStore = create<UIStore>()(
     (set) => ({
       commandPaletteOpen: false,
       leftWidth: 288, // matches the old w-72 default
-      rightWidth: 384, // matches the old w-96 default
       leftCollapsed: false,
-      rightCollapsed: false,
+      knowledgeOpen: false,
 
       toggleCommandPalette: () =>
         set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
@@ -39,22 +37,17 @@ export const useUIStore = create<UIStore>()(
         set({
           leftWidth: Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w))),
         }),
-      setRightWidth: (w) =>
-        set({
-          rightWidth: Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w))),
-        }),
       toggleLeft: () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
-      toggleRight: () => set((s) => ({ rightCollapsed: !s.rightCollapsed })),
       setLeftCollapsed: (c) => set({ leftCollapsed: c }),
-      setRightCollapsed: (c) => set({ rightCollapsed: c }),
+
+      toggleKnowledge: () => set((s) => ({ knowledgeOpen: !s.knowledgeOpen })),
+      setKnowledgeOpen: (open) => set({ knowledgeOpen: open }),
     }),
     {
       name: "rednotebook-ui",
       partialize: (s) => ({
         leftWidth: s.leftWidth,
-        rightWidth: s.rightWidth,
         leftCollapsed: s.leftCollapsed,
-        rightCollapsed: s.rightCollapsed,
       }),
     }
   )

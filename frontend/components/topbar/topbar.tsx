@@ -4,6 +4,7 @@ import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  BookMarked,
   Database,
   Download,
   Loader2,
@@ -39,6 +40,8 @@ export function Topbar() {
   const setTitle = useNotebookStore((s) => s.setTitle);
   const connection = useConnectionStore((s) => s.connection);
   const openPalette = useUIStore((s) => s.setCommandPalette);
+  const toggleKnowledge = useUIStore((s) => s.toggleKnowledge);
+  const knowledgeOpen = useUIStore((s) => s.knowledgeOpen);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   const openTab = useNotebookStore((s) => s.openTab);
@@ -278,6 +281,22 @@ export function Topbar() {
             </span>
           </Button>
         </ConnectionDialog>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              variant={knowledgeOpen ? "default" : "ghost"}
+              aria-label="Knowledge drawer"
+              onClick={toggleKnowledge}
+            >
+              <BookMarked className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Knowledge for this notebook
+          </TooltipContent>
+        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>

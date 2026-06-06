@@ -31,7 +31,6 @@ import { SQLCell } from "@/components/notebook/sql-cell";
 import { MarkdownCell } from "@/components/notebook/markdown-cell";
 import { AIPromptCell } from "@/components/notebook/ai-prompt-cell";
 import { VisualizationCell } from "@/components/notebook/visualization-cell";
-import { NotebookKnowledge } from "@/components/notebook/notebook-knowledge";
 import type { Cell, CellType } from "@/lib/types";
 
 export function NotebookCanvas() {
@@ -121,8 +120,6 @@ export function NotebookCanvas() {
           </DndContext>
 
           <CellInserter onAdd={(t) => addCell(t)} />
-
-          <NotebookKnowledge />
         </div>
       </ScrollArea>
     </main>

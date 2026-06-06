@@ -188,6 +188,13 @@ export type SQLCell = {
   updated_at?: string;
 };
 
+export type AIChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  suggested_sql?: string | null;
+  provider?: string | null;
+};
+
 export type AIPromptCell = {
   id: string;
   cell_type: "ai_prompt";
@@ -195,6 +202,7 @@ export type AIPromptCell = {
   response?: string | null;
   suggested_sql?: string | null;
   context_mode?: string;
+  messages?: AIChatMessage[];
   created_at?: string;
   updated_at?: string;
 };

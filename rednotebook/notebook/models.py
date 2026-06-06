@@ -73,12 +73,20 @@ class SQLCell(_CellBase):
     notes: str | None = None
 
 
+class AIChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    suggested_sql: str | None = None
+    provider: str | None = None
+
+
 class AIPromptCell(_CellBase):
     cell_type: Literal[CellType.AI_PROMPT] = CellType.AI_PROMPT
     prompt: str = ""
     response: str | None = None
     suggested_sql: str | None = None
     context_mode: str = "schema_and_stats"
+    messages: list[AIChatMessage] = Field(default_factory=list)
 
 
 class VisualizationCell(_CellBase):
@@ -165,7 +173,27 @@ class Notebook(BaseModel):
         return next((c for c in self.cells if c.id == cell_id), None)
 
 
+_DEFAULT_WELCOME = """# {title}
+
+A blank notebook to query, explore, and narrate.
+
+## How to use this notebook
+
+- **SQL cell** — write a query and hit `Run` (or `⌘↵`). Add one from the inserter below.
+- **Markdown cell** — narrate your analysis. `#`, `##`, `-`, fenced code, tables — all supported.
+- **Ask AI cell** — describe what you want in plain English; refine in a chat thread; promote any reply to a SQL cell.
+- **Chart cell** — visualize the result of any SQL cell.
+
+## Tips
+
+- Drag the handle on the left of any cell to reorder.
+- `⌘K` opens the command palette.
+- The **Knowledge** drawer (top-right) holds notebook-grounded chat + infographics.
+
+> Delete this cell once you're ready to start your own story."""
+
+
 def new_notebook(title: str = "Untitled Notebook") -> Notebook:
-    """Create a fresh notebook with a single markdown welcome cell."""
-    welcome = MarkdownCell(source=f"# {title}\n\nStart by adding a SQL cell.")
+    """Create a fresh notebook with a markdown welcome cheat-sheet."""
+    welcome = MarkdownCell(source=_DEFAULT_WELCOME.format(title=title))
     return Notebook(metadata=NotebookMetadata(title=title), cells=[welcome])

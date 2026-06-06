@@ -50,6 +50,26 @@ function uid() {
   return uuid().replace(/-/g, "");
 }
 
+const DEFAULT_WELCOME = (title: string) =>
+  `# ${title}
+
+A blank notebook to query, explore, and narrate.
+
+## How to use this notebook
+
+- **SQL cell** — write a query and hit \`Run\` (or \`⌘↵\`). Add one from the inserter below.
+- **Markdown cell** — narrate your analysis. \`#\`, \`##\`, \`-\`, fenced code, tables — all supported.
+- **Ask AI cell** — describe what you want in plain English; refine in a chat thread; promote any reply to a SQL cell.
+- **Chart cell** — visualize the result of any SQL cell.
+
+## Tips
+
+- Drag the handle on the left of any cell to reorder.
+- \`⌘K\` opens the command palette.
+- The **Knowledge** drawer (top-right) holds notebook-grounded chat + infographics.
+
+> Delete this cell once you're ready to start your own story.`;
+
 function emptyNotebook(title = "Untitled Notebook"): Notebook {
   return {
     id: uid(),
@@ -58,8 +78,7 @@ function emptyNotebook(title = "Untitled Notebook"): Notebook {
       {
         id: uid(),
         cell_type: "markdown",
-        source:
-          "# " + title + "\n\nWelcome to RedNotebook AI. Start by adding a SQL cell below.",
+        source: DEFAULT_WELCOME(title),
       },
       { id: uid(), cell_type: "sql", sql: "SELECT 1 AS hello" },
     ],

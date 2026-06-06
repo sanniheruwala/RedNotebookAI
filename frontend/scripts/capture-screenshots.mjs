@@ -26,8 +26,13 @@ async function captureTheme(theme) {
 
   // Seed next-themes' localStorage so the app boots straight into the
   // requested theme on first paint (avoids a dark-flash on light shots).
+  // Also clear any persisted Zustand stores so the screenshot reflects
+  // the *current* default notebook welcome rather than a leftover one.
   await ctx.addInitScript((t) => {
     try {
+      for (const k of Object.keys(window.localStorage)) {
+        if (k.startsWith("rednotebook-")) window.localStorage.removeItem(k);
+      }
       window.localStorage.setItem("theme", t);
     } catch {
       /* private browsing — ignored */

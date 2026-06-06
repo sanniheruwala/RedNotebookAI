@@ -2,11 +2,8 @@
 
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
-  BookMarked,
-  ChevronDown,
   FileText,
   Image as ImageIcon,
   Loader2,
@@ -16,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Kbd } from "@/components/ui/kbd";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/markdown";
 import { InfographicModal } from "@/components/panels/infographic-modal";
 import { useActiveNotebook } from "@/store/notebook-store";
@@ -26,18 +24,18 @@ import type { InfographicBrief, KnowledgeSource } from "@/lib/types";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 /**
- * Per-notebook knowledge surface. Auto-bound to the active notebook so the
- * user never has to pick from a dropdown. Collapsible footer that hosts the
- * sources list, AI chat over those sources, and the infographic generator.
+ * Per-notebook knowledge surface: source list, AI chat grounded in those
+ * sources, and the infographic generator. Rendered inside the right-edge
+ * drawer (see knowledge-drawer.tsx). Auto-binds to the active notebook so
+ * the user never has to pick from a dropdown.
  */
-export function NotebookKnowledge() {
+export function NotebookKnowledgeBody() {
   const notebook = useActiveNotebook();
   const { knowledgeNotebookId, ensure } = useNotebookKnowledge(
     notebook.id,
     notebook.metadata.title
   );
   const qc = useQueryClient();
-  const [open, setOpen] = React.useState(true);
   const [prompt, setPrompt] = React.useState("");
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [infographic, setInfographic] = React.useState<{
@@ -51,7 +49,7 @@ export function NotebookKnowledge() {
       knowledgeNotebookId
         ? api.listKnowledgeSources(knowledgeNotebookId)
         : Promise.resolve({ sources: [] }),
-    enabled: !!knowledgeNotebookId && open,
+    enabled: !!knowledgeNotebookId,
   });
 
   const ask = useMutation({
@@ -98,143 +96,118 @@ export function NotebookKnowledge() {
   };
 
   return (
-    <motion.section
-      layout
-      className="card-premium mt-4 overflow-hidden"
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 border-b border-border/60 bg-muted/30 px-3 py-2 text-left transition-colors hover:bg-muted/50"
-      >
-        <BookMarked className="h-3.5 w-3.5 text-primary" />
-        <span className="text-xs font-semibold tracking-tightish">Knowledge</span>
-        <Badge variant="outline" className="h-5 rounded-md text-[10px]">
-          {knowledgeNotebookId ? `${sourceCount} sources` : "Not started"}
-        </Badge>
-        <span className="ml-auto text-[10px] text-muted-foreground">
-          AI chat &amp; infographic for this notebook
-        </span>
-        <ChevronDown
-          className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${
-            open ? "" : "-rotate-90"
-          }`}
-        />
-      </button>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden"
-          >
-            <div className="grid gap-4 p-4 md:grid-cols-2">
-              {/* Sources */}
-              <div className="space-y-2">
-                <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Sources
-                </div>
-                {sourceCount === 0 ? (
-                  <div className="rounded-lg border border-dashed bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
-                    Add SQL, schemas, or chart explanations from any cell into
-                    this knowledge surface to build up reference material the
-                    AI can ground its answers on.
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {(sources.data?.sources ?? []).map((src) => (
-                      <SourceRow key={src.id} src={src} />
-                    ))}
-                  </div>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full gap-1.5"
-                  onClick={() => generateInfographic.mutate()}
-                  disabled={generateInfographic.isPending}
-                >
-                  {generateInfographic.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <ImageIcon className="h-3.5 w-3.5" />
-                  )}
-                  Generate infographic
-                </Button>
-              </div>
-
-              {/* Chat */}
-              <div className="flex flex-col gap-2">
-                <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Ask this notebook
-                </div>
-                <div className="flex-1 space-y-2 overflow-y-auto rounded-lg border bg-muted/10 p-2.5 min-h-[140px] max-h-[260px]">
-                  {messages.length === 0 ? (
-                    <div className="text-[11px] text-muted-foreground">
-                      Try <em>&ldquo;what does the schema look like?&rdquo;</em> once
-                      you&apos;ve added a source.
-                    </div>
-                  ) : (
-                    messages.map((m, i) => (
-                      <div
-                        key={i}
-                        className={`rounded-md border p-2 text-xs ${
-                          m.role === "user"
-                            ? "ml-3 border-primary/30 bg-primary/5"
-                            : "mr-3 bg-card"
-                        }`}
-                      >
-                        <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                          {m.role === "assistant" && (
-                            <Sparkles className="h-2.5 w-2.5 text-primary" />
-                          )}
-                          {m.role}
-                        </div>
-                        <Markdown variant="compact">{m.content}</Markdown>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <Textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                      e.preventDefault();
-                      send(prompt);
-                    }
-                  }}
-                  rows={2}
-                  placeholder="Ask grounded in your sources..."
-                  className="resize-none rounded-md text-xs"
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <span className="hidden items-center gap-1 text-[10px] text-muted-foreground md:flex">
-                    <Kbd>⌘</Kbd>
-                    <Kbd>↵</Kbd>
-                  </span>
-                  <Button
-                    size="sm"
-                    onClick={() => send(prompt)}
-                    disabled={ask.isPending || !prompt.trim()}
-                    className="h-7 gap-1.5"
-                  >
-                    {ask.isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
-                    )}
-                    Ask
-                  </Button>
-                </div>
-              </div>
+    <div className="flex h-full flex-col">
+      {/* Sources */}
+      <section className="border-b">
+        <div className="flex items-center justify-between px-4 pt-3">
+          <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Sources
+          </div>
+          <Badge variant="outline" className="h-5 rounded-md text-[10px]">
+            {knowledgeNotebookId ? `${sourceCount}` : "—"}
+          </Badge>
+        </div>
+        <div className="px-4 py-3">
+          {sourceCount === 0 ? (
+            <div className="rounded-lg border border-dashed bg-muted/20 px-3 py-3 text-[11px] leading-relaxed text-muted-foreground">
+              Add SQL, schemas, or chart explanations from any cell to build up
+              reference material the AI can ground its answers on.
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ) : (
+            <ScrollArea className="max-h-40">
+              <div className="space-y-1.5 pr-1">
+                {(sources.data?.sources ?? []).map((src) => (
+                  <SourceRow key={src.id} src={src} />
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-2 w-full gap-1.5"
+            onClick={() => generateInfographic.mutate()}
+            disabled={generateInfographic.isPending}
+          >
+            {generateInfographic.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ImageIcon className="h-3.5 w-3.5" />
+            )}
+            Generate infographic
+          </Button>
+        </div>
+      </section>
+
+      {/* Chat */}
+      <section className="flex min-h-0 flex-1 flex-col">
+        <div className="px-4 pt-3 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Ask this notebook
+        </div>
+        <ScrollArea className="flex-1 px-4 py-2">
+          <div className="space-y-2">
+            {messages.length === 0 ? (
+              <div className="rounded-md border border-dashed bg-muted/10 px-3 py-3 text-[11px] text-muted-foreground">
+                Try <em>&ldquo;what does the schema look like?&rdquo;</em> once
+                you&apos;ve added a source.
+              </div>
+            ) : (
+              messages.map((m, i) => (
+                <div
+                  key={i}
+                  className={`rounded-md border p-2 text-xs ${
+                    m.role === "user"
+                      ? "ml-3 border-primary/30 bg-primary/5"
+                      : "mr-3 bg-card"
+                  }`}
+                >
+                  <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                    {m.role === "assistant" && (
+                      <Sparkles className="h-2.5 w-2.5 text-primary" />
+                    )}
+                    {m.role}
+                  </div>
+                  <Markdown variant="compact">{m.content}</Markdown>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+        <div className="border-t bg-muted/20 p-3">
+          <Textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                send(prompt);
+              }
+            }}
+            rows={2}
+            placeholder="Ask grounded in your sources..."
+            className="resize-none rounded-md text-xs"
+          />
+          <div className="mt-2 flex items-center justify-end gap-2">
+            <span className="hidden items-center gap-1 text-[10px] text-muted-foreground md:flex">
+              <Kbd>⌘</Kbd>
+              <Kbd>↵</Kbd>
+            </span>
+            <Button
+              size="sm"
+              onClick={() => send(prompt)}
+              disabled={ask.isPending || !prompt.trim()}
+              className="h-7 gap-1.5"
+            >
+              {ask.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              Ask
+            </Button>
+          </div>
+        </div>
+      </section>
 
       <InfographicModal
         open={!!infographic}
@@ -243,7 +216,7 @@ export function NotebookKnowledge() {
         template="executive_kpi_brief"
         rawHtml={infographic?.html}
       />
-    </motion.section>
+    </div>
   );
 }
 

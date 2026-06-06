@@ -3,24 +3,20 @@
 import { Loader2 } from "lucide-react";
 import { Topbar } from "@/components/topbar/topbar";
 import { LeftSidebar } from "@/components/sidebar/left-sidebar";
-import { RightSidebar } from "@/components/panels/right-sidebar";
 import { NotebookCanvas } from "@/components/notebook/notebook-canvas";
 import { NotebookTabs } from "@/components/notebook/notebook-tabs";
 import { CommandPalette } from "@/components/command-palette";
 import { ResizableSidebar } from "@/components/resizable-sidebar";
+import { KnowledgeDrawer } from "@/components/panels/knowledge-drawer";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { useUIStore } from "@/store/ui-store";
 
 export default function HomePage() {
   const status = useRequireAuth();
   const leftWidth = useUIStore((s) => s.leftWidth);
-  const rightWidth = useUIStore((s) => s.rightWidth);
   const leftCollapsed = useUIStore((s) => s.leftCollapsed);
-  const rightCollapsed = useUIStore((s) => s.rightCollapsed);
   const setLeftWidth = useUIStore((s) => s.setLeftWidth);
-  const setRightWidth = useUIStore((s) => s.setRightWidth);
   const toggleLeft = useUIStore((s) => s.toggleLeft);
-  const toggleRight = useUIStore((s) => s.toggleRight);
 
   if (status.isPending) {
     return (
@@ -58,18 +54,9 @@ export default function HomePage() {
             <NotebookCanvas />
           </div>
         </div>
-
-        <ResizableSidebar
-          side="right"
-          width={rightWidth}
-          collapsed={rightCollapsed}
-          onResize={setRightWidth}
-          onToggle={toggleRight}
-        >
-          <RightSidebar />
-        </ResizableSidebar>
       </div>
       <CommandPalette />
+      <KnowledgeDrawer />
     </div>
   );
 }
