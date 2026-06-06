@@ -6,15 +6,17 @@ RedNotebook AI is split into a Python backend and a Next.js frontend.
 
 ```
 rednotebook/
+├── auth/           # Local users, JWT sessions, password hashing, OAuth, API tokens
 ├── config/         # Settings (Pydantic) loaded from .env
 ├── security/       # SQL guard, secret masking
-├── connectors/     # BaseConnector interface + Trino implementation + registry
+├── connectors/     # BaseConnector + Trino + DuckDB + 11 SQLAlchemy dialects + registry
 ├── notebook/       # Notebook + cell models, JSON storage, runner (guard-aware)
 ├── ai/             # Provider abstraction + mock/openai/anthropic/ollama
 ├── profiling/      # Result profiler + PII / restricted detector
 ├── visualization/  # Recommender, chart spec builder, infographic renderer
 ├── knowledge/      # Internal knowledge store + NotebookLM Enterprise stub
 ├── cache/          # Optional Parquet cache for results
+├── migrations/     # One-shot data migrations
 ├── server/         # FastAPI app + routers
 └── cli/            # Typer CLI
 ```
@@ -22,7 +24,9 @@ rednotebook/
 ## Data flow (run-a-cell)
 
 1. UI sends `POST /api/query/run` with the connection payload and SQL.
-2. FastAPI builds a `TrinoConnector` from the payload.
+2. FastAPI looks up the connector class by `connector_type` via
+   `rednotebook.connectors.registry`, then builds the matching connector
+   from the payload (Trino, DuckDB, or one of the 11 SQLAlchemy dialects).
 3. `rednotebook.notebook.runner.run_sql` calls `check_sql` first.
 4. If blocked → return verdict; no execution.
 5. Otherwise the connector executes the SQL and returns a typed `QueryResult`.
@@ -50,4 +54,16 @@ Every connector implements `BaseConnector`:
 - `test_connection`, `list_catalogs`, `list_schemas`, `list_tables`, `list_columns`
 - `preview_table`, `run_query`, `explain_query`, `cancel_query`
 
-Plug-ins register themselves with `register_connector("name", cls)`.
+Built-in connectors:
+
+- **Trino** (`rednotebook.connectors.trino`)
+- **DuckDB** (`rednotebook.connectors.duckdb`)
+- **PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, Snowflake, BigQuery,
+  Redshift, Oracle, ClickHouse, Databricks** — all share
+  `SQLAlchemyConnector` in `rednotebook.connectors.sqlalchemy_dialects`.
+
+Drivers are bundled in the base distribution; no per-dialect extra
+install is required. Plug-ins register themselves with
+`register_connector("name", cls)`.
+
+See [docs/connectors.md](connectors.md) for per-dialect fields.

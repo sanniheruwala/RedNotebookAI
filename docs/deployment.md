@@ -66,7 +66,8 @@ connections. Think of it like sharing one Jupyter server.
       Cloudflare Access) in front of the reverse proxy as a defense-in-depth
       authentication layer.
 - [ ] Run as a **non-root user** inside the container. The shipped Dockerfile
-      already does this implicitly via `python:3.11-slim`, but verify.
+      already does this — it creates `redbook` (uid 1000) and `USER redbook`
+      switches before `CMD`. Verify with `docker exec <id> id`.
 - [ ] Restrict the Trino service account RedNotebook uses to **read-only**.
       Set `ALLOW_WRITE_QUERIES=false` (the default), never override.
 - [ ] **Rotate AI provider keys** if anyone leaves the team.

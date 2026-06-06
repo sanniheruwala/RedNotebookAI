@@ -4,7 +4,7 @@
 
 # RedNotebook AI
 
-**The open-source AI data notebook for Trino.**
+**The open-source AI data notebook for Trino, DuckDB, and 11 more SQL engines.**
 By [RedAnalytica](https://redanalytica.in).
 
 [![CI](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/ci.yml/badge.svg)](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/ci.yml)
@@ -111,9 +111,28 @@ See [`docs/deployment.md`](docs/deployment.md) for the full security model.
 
 ## Pick a data source
 
-In the UI top bar, click **Configure connection**.
+In the UI top bar, click **Configure connection**. **13 connectors ship in
+the box** — no extra `pip install` step, no driver setup, no ODBC dance.
 
-### Option A: DuckDB (no server, instant)
+| Connector       | What you'll need                                                  |
+|-----------------|-------------------------------------------------------------------|
+| DuckDB          | Nothing. Pick in-memory or a `.duckdb` file path.                 |
+| Trino           | Host, port, user, password, catalog, schema, TLS settings.        |
+| PostgreSQL      | Host, port, user, password, database.                             |
+| MySQL / MariaDB | Host, port, user, password, database.                             |
+| SQLite          | Path to the `.db` / `.sqlite` file.                               |
+| MSSQL           | Host, port, user, password, database. ODBC 18 driver is bundled.  |
+| Snowflake       | Account, warehouse, role, user, password, database.               |
+| BigQuery        | Project, dataset, service-account JSON path.                      |
+| Redshift        | Host, port, user, password, database.                             |
+| Oracle          | Host, port, user, password, database or `service_name`.           |
+| ClickHouse      | Host, port (8123 HTTP), user, password, database, `secure` flag.  |
+| Databricks SQL  | Host, `http_path`, access token, optional catalog.                |
+
+See [docs/connectors.md](docs/connectors.md) for the full per-dialect field
+reference.
+
+### Quick start: DuckDB (no server, instant)
 
 The default. Pick "DuckDB (no server)" in the dialog. Two modes:
 
@@ -122,9 +141,10 @@ The default. Pick "DuckDB (no server)" in the dialog. Two modes:
 
 Optionally set a "Working directory" so relative file paths in `read_csv_auto` / `read_parquet` resolve where you expect.
 
-### Option B: Trino HTTPS
+### Trino HTTPS defaults via `.env`
 
-For team analytics on real data warehouses. In the UI dialog, fill in host/port/user/password/catalog/schema. Or set defaults in `.env`:
+For team analytics on real data warehouses, fill in the UI dialog or set
+defaults in `.env`:
 
 ```env
 TRINO_HOST=trino.example.com
@@ -178,7 +198,7 @@ The first registration becomes the workspace admin. Subsequent users need an inv
 
 | Layer | Tech |
 |-------|------|
-| Backend | Python 3.11+, FastAPI, Pydantic, Trino client, Pandas, ECharts/Plotly |
+| Backend | Python 3.11+, FastAPI, Pydantic, Trino client, SQLAlchemy + bundled drivers (Postgres, MySQL, MSSQL/ODBC, Snowflake, BigQuery, Redshift, Oracle, ClickHouse, Databricks, ...), DuckDB, Pandas, ECharts/Plotly |
 | Frontend | Next.js 14, TypeScript, Tailwind, shadcn/ui, Monaco, AG Grid, ECharts, framer-motion, @dnd-kit |
 | State | TanStack Query (server) + Zustand (local) |
 | Auth | Local email+password (bcrypt) + JWT cookies, GitHub OAuth, API tokens |
@@ -189,7 +209,7 @@ The first registration becomes the workspace admin. Subsequent users need an inv
 rednotebook/        Python backend (FastAPI + core libs)
 ├── auth/           User store, JWT sessions, password hashing, OAuth, API tokens
 ├── server/         FastAPI app + routers
-├── connectors/     Trino + base plugin interface
+├── connectors/     Trino + DuckDB + 11 SQLAlchemy dialects + registry
 ├── ai/             Provider abstraction (mock, openai, anthropic, ollama)
 ├── notebook/       Notebook models, JSON storage, guard-aware runner
 ├── knowledge/      NotebookLM-style internal knowledge layer
@@ -226,7 +246,7 @@ Full [architecture write-up](docs/architecture.md).
 
 ```bash
 # Backend
-pytest                              # 44+ tests
+pytest                              # 56+ tests
 ruff check .
 
 # Frontend

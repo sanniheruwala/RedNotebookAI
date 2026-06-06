@@ -9,9 +9,10 @@ and the API schema has a single source of truth. Each connector inherits
   * a default port,
   * a ``_build_url`` that maps its config to a SQLAlchemy URL.
 
-Python drivers are imported *lazily* inside :py:meth:`SQLAlchemyConnector._connect`
-through ``sqlalchemy.create_engine``. A missing driver raises a clear error
-("pip install ...") at connect time rather than breaking app startup.
+Python drivers are bundled in the base ``rednotebook-ai`` distribution and
+imported *lazily* by SQLAlchemy inside ``create_engine``. If the bundled
+driver is somehow missing — e.g. a corrupted install — the connector
+raises a clear runtime error instead of crashing on import at startup.
 """
 
 from __future__ import annotations
@@ -66,8 +67,6 @@ class SQLAlchemyConnector(BaseConnector):
     """Generic connector that drives any SQLAlchemy dialect."""
 
     config: SQLAlchemyConnectionConfig
-    #: Friendly extras name used in the missing-driver error message.
-    extras_hint: str = "all-connectors"
     #: SQLAlchemy dialect+driver string, e.g. "postgresql+psycopg".
     dialect_driver: str = ""
     #: When True, only the database name matters (SQLite-like).
@@ -97,12 +96,9 @@ class SQLAlchemyConnector(BaseConnector):
 
     # ----- Engine -----------------------------------------------------------
     def _engine_or_raise(self):  # type: ignore[no-untyped-def]
-        try:
-            import sqlalchemy as sa
-        except ImportError as exc:
-            raise RuntimeError(
-                "SQLAlchemy is required for this connector."
-            ) from exc
+        import sqlalchemy as sa
+        from sqlalchemy.exc import NoSuchModuleError
+
         if self._engine is None:
             try:
                 self._engine = sa.create_engine(
@@ -110,11 +106,14 @@ class SQLAlchemyConnector(BaseConnector):
                     connect_args=self.config.connect_args or {},
                     pool_pre_ping=True,
                 )
-            except ModuleNotFoundError as exc:
+            except (ModuleNotFoundError, NoSuchModuleError) as exc:
+                # Drivers are bundled with rednotebook-ai, so reaching this
+                # branch means the install itself is broken (corrupted
+                # wheel, partial site-packages, mismatched Python version).
                 raise RuntimeError(
-                    f"Database driver not installed. Run:\n"
-                    f"  pip install 'rednotebook-ai[{self.extras_hint}]'\n"
-                    f"Underlying error: {exc}"
+                    f"Bundled driver for '{self.dialect_driver}' could not be "
+                    f"loaded. The rednotebook-ai install appears to be "
+                    f"incomplete — try reinstalling. Underlying error: {exc}"
                 ) from exc
         return self._engine
 
@@ -258,7 +257,6 @@ class PostgreSQLConnectionConfig(SQLAlchemyConnectionConfig):
 class PostgreSQLConnector(SQLAlchemyConnector):
     config: PostgreSQLConnectionConfig
     dialect_driver = "postgresql+psycopg"
-    extras_hint = "postgres"
 
 
 class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
@@ -269,7 +267,6 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
 class MySQLConnector(SQLAlchemyConnector):
     config: MySQLConnectionConfig
     dialect_driver = "mysql+pymysql"
-    extras_hint = "mysql"
 
 
 class MariaDBConnectionConfig(SQLAlchemyConnectionConfig):
@@ -280,7 +277,6 @@ class MariaDBConnectionConfig(SQLAlchemyConnectionConfig):
 class MariaDBConnector(SQLAlchemyConnector):
     config: MariaDBConnectionConfig
     dialect_driver = "mariadb+pymysql"
-    extras_hint = "mariadb"
 
 
 class SQLiteConnectionConfig(SQLAlchemyConnectionConfig):
@@ -291,7 +287,6 @@ class SQLiteConnectionConfig(SQLAlchemyConnectionConfig):
 class SQLiteConnector(SQLAlchemyConnector):
     config: SQLiteConnectionConfig
     dialect_driver = "sqlite"
-    extras_hint = "all-connectors"  # stdlib sqlite3, no extra needed
     file_based = True
 
 
@@ -304,7 +299,6 @@ class MSSQLConnectionConfig(SQLAlchemyConnectionConfig):
 class MSSQLConnector(SQLAlchemyConnector):
     config: MSSQLConnectionConfig
     dialect_driver = "mssql+pyodbc"
-    extras_hint = "mssql"
 
     def _build_url(self) -> str:
         c: MSSQLConnectionConfig = self.config  # type: ignore[assignment]
@@ -323,7 +317,6 @@ class SnowflakeConnectionConfig(SQLAlchemyConnectionConfig):
 class SnowflakeConnector(SQLAlchemyConnector):
     config: SnowflakeConnectionConfig
     dialect_driver = "snowflake"
-    extras_hint = "snowflake"
 
     def _build_url(self) -> str:
         c: SnowflakeConnectionConfig = self.config  # type: ignore[assignment]
@@ -355,7 +348,6 @@ class BigQueryConnectionConfig(SQLAlchemyConnectionConfig):
 class BigQueryConnector(SQLAlchemyConnector):
     config: BigQueryConnectionConfig
     dialect_driver = "bigquery"
-    extras_hint = "bigquery"
 
     def _build_url(self) -> str:
         c: BigQueryConnectionConfig = self.config  # type: ignore[assignment]
@@ -376,7 +368,6 @@ class RedshiftConnectionConfig(SQLAlchemyConnectionConfig):
 class RedshiftConnector(SQLAlchemyConnector):
     config: RedshiftConnectionConfig
     dialect_driver = "redshift+redshift_connector"
-    extras_hint = "redshift"
 
 
 class OracleConnectionConfig(SQLAlchemyConnectionConfig):
@@ -388,7 +379,6 @@ class OracleConnectionConfig(SQLAlchemyConnectionConfig):
 class OracleConnector(SQLAlchemyConnector):
     config: OracleConnectionConfig
     dialect_driver = "oracle+oracledb"
-    extras_hint = "oracle"
 
     def _build_url(self) -> str:
         c: OracleConnectionConfig = self.config  # type: ignore[assignment]
@@ -407,7 +397,6 @@ class ClickHouseConnectionConfig(SQLAlchemyConnectionConfig):
 
 class ClickHouseConnector(SQLAlchemyConnector):
     config: ClickHouseConnectionConfig
-    extras_hint = "clickhouse"
 
     @property
     def dialect_driver(self) -> str:  # type: ignore[override]
@@ -432,7 +421,6 @@ class DatabricksConnectionConfig(SQLAlchemyConnectionConfig):
 class DatabricksConnector(SQLAlchemyConnector):
     config: DatabricksConnectionConfig
     dialect_driver = "databricks"
-    extras_hint = "databricks"
 
     def _build_url(self) -> str:
         c: DatabricksConnectionConfig = self.config  # type: ignore[assignment]

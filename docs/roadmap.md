@@ -1,32 +1,39 @@
 # Roadmap
 
-## Phase 1. MVP (this release)
+## Phase 1. MVP — ✅ shipped
 
 - Trino HTTPS connector
 - Notebook UI (SQL, Markdown, AI prompt cells)
 - Result table + profile + chart + AI summary tabs
 - SQL guard with read-only default
-- Mock AI provider (offline) + OpenAI/Anthropic/Ollama options
+- Mock AI provider (offline) + OpenAI / Anthropic / Ollama options
 - Internal Knowledge Notebook + infographic HTML export
 - Notebook persistence (local JSON)
 - FastAPI HTTP layer + Typer CLI + Docker
 
-## Phase 2. Polish & analyst tooling
+## Phase 2. Polish & analyst tooling — ✅ mostly shipped
 
-- AI chat over knowledge sources
-- Better infographic templates + PDF/PNG export (kaleido + headless Chrome)
-- AG Grid Community for power-user result navigation
-- Saved connections + secret manager integration
-- Python cell type (where notebook host allows)
-- Better profiling (histograms, mutual-info hints)
+- ✅ AI chat over knowledge sources (multi-turn Ask AI)
+- ✅ Saved connections store + per-instance credentials
+- ✅ Per-user namespacing (auth, GitHub OAuth, API tokens, admin invites)
+- ✅ AG Grid for power-user result navigation
+- ✅ Knowledge layer as a first-class slide-in panel with full CRUD
+- 🟡 Better profiling (histograms, mutual-info hints)
+- 🟡 Better infographic templates + PDF/PNG export (kaleido + headless Chrome)
+- 🟡 Python cell type (where notebook host allows)
 
-## Phase 3. More connectors
+## Phase 3. More connectors — ✅ shipped in v0.7.x
 
-- PostgreSQL, MySQL, BigQuery, Snowflake, Redshift, Athena
-- Databricks SQL, DuckDB, ClickHouse
-- CSV / Excel / Google Sheets upload
+- ✅ DuckDB (v0.3)
+- ✅ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL, Snowflake, BigQuery,
+       Redshift, Oracle, ClickHouse, Databricks (v0.7.0, 11 SQL connectors
+       via a generic SQLAlchemy backend)
+- ✅ Drivers bundled by default — no `pip install ...[extras]` step
+       needed (v0.7.5)
+- 🟡 Athena (not yet)
+- 🟡 CSV / Excel / Google Sheets upload (not yet)
 
-## Phase 4. Collaboration / SaaS
+## Phase 4. Collaboration / SaaS — 🟡 in progress
 
 - Git-backed notebooks
 - Sharing + comments
@@ -34,5 +41,5 @@
 - Dashboard publishing
 - dbt + Airflow integrations
 - Semantic layer
-- RBAC / SSO
+- RBAC / SSO (partial — GitHub OAuth + invites shipped)
 - Hosted SaaS version
