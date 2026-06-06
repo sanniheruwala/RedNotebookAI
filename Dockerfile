@@ -65,12 +65,16 @@ ENV REDNOTEBOOK_STATIC_DIR=/static_frontend
 # Create the per-user data dirs and a non-root user
 RUN useradd -m -u 1000 redbook \
     && mkdir -p /data/notebooks /data/knowledge /data/auth /data/artifacts /data/exports \
+                /data/connections /data/audit /data/admin \
     && chown -R redbook:redbook /data
 ENV NOTEBOOK_STORAGE_DIR=/data/notebooks \
     KNOWLEDGE_STORAGE_DIR=/data/knowledge \
     AUTH_STORAGE_DIR=/data/auth \
     ARTIFACTS_DIR=/data/artifacts \
-    EXPORTS_DIR=/data/exports
+    EXPORTS_DIR=/data/exports \
+    CONNECTION_STORAGE_DIR=/data/connections \
+    AUDIT_STORAGE_DIR=/data/audit \
+    RUNTIME_CONFIG_DIR=/data/admin
 
 USER redbook
 
