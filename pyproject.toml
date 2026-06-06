@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rednotebook-ai"
-version = "0.6.0"
+version = "0.7.0"
 description = "Open-source AI data notebook for Trino and modern data platforms."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -32,11 +32,37 @@ dependencies = [
     "cryptography>=42.0",
     "slowapi>=0.1.9",
     "duckdb>=1.0",
+    "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
 ai-openai = ["openai>=1.10"]
 ai-anthropic = ["anthropic>=0.18"]
+# Database driver extras. Each one installs the Python driver that SQLAlchemy
+# needs for that dialect; without it the connector will raise a friendly
+# "pip install ..." error at connect time instead of breaking app startup.
+postgres = ["psycopg[binary]>=3.1"]
+mysql = ["pymysql>=1.1"]
+mariadb = ["pymysql>=1.1"]
+mssql = ["pyodbc>=5.0"]
+snowflake = ["snowflake-sqlalchemy>=1.5"]
+bigquery = ["sqlalchemy-bigquery>=1.10"]
+redshift = ["sqlalchemy-redshift>=0.8", "redshift-connector>=2.0"]
+oracle = ["oracledb>=2.0"]
+clickhouse = ["clickhouse-sqlalchemy>=0.3"]
+databricks = ["databricks-sqlalchemy>=1.0"]
+all-connectors = [
+    "psycopg[binary]>=3.1",
+    "pymysql>=1.1",
+    "pyodbc>=5.0",
+    "snowflake-sqlalchemy>=1.5",
+    "sqlalchemy-bigquery>=1.10",
+    "sqlalchemy-redshift>=0.8",
+    "redshift-connector>=2.0",
+    "oracledb>=2.0",
+    "clickhouse-sqlalchemy>=0.3",
+    "databricks-sqlalchemy>=1.0",
+]
 dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",

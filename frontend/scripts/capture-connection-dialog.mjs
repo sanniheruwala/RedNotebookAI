@@ -35,8 +35,16 @@ async function captureTheme(theme) {
   await page.goto(BASE, { waitUntil: "networkidle", timeout: 60_000 });
   await page.waitForTimeout(1500);
 
-  // Open the connection-picker dropdown.
-  await page.getByRole("button", { name: /Pick connection|DuckDB|in-memory|local/i }).first().click();
+  // Open the connection-picker dropdown by clicking the topbar trigger.
+  // The radix DropdownMenu trigger is the first button in the topbar that
+  // ends in a chevron — find it via text fallbacks.
+  const trigger = page
+    .locator(
+      'header button:has-text("DuckDB"), header button:has-text("in-memory"), header button:has-text("Pick connection")'
+    )
+    .first();
+  await trigger.waitFor({ state: "visible", timeout: 30_000 });
+  await trigger.click();
   await page.waitForTimeout(300);
   // Click "Manage connections…"
   await page.getByText(/Manage connections/i).click();

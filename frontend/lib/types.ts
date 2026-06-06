@@ -103,7 +103,92 @@ export type DuckDBConnection = {
   max_result_rows?: number;
 };
 
-export type Connection = TrinoConnection | DuckDBConnection;
+/**
+ * Shared shape for any SQLAlchemy-backed connector. The discriminator
+ * field (`connector_type`) picks the dialect. Per-dialect extras (e.g.
+ * Snowflake's `warehouse`, Databricks' `http_path`) are tacked on as
+ * optional members in the variant types below.
+ */
+type SQLAlchemyBaseConnection = {
+  connection_name: string;
+  host?: string;
+  port?: number;
+  database?: string;
+  username?: string;
+  password?: string;
+  schema?: string | null;
+  query_timeout_seconds?: number;
+  max_result_rows?: number;
+  connect_args?: Record<string, unknown>;
+  url_params?: Record<string, string>;
+};
+
+export type PostgreSQLConnection = SQLAlchemyBaseConnection & {
+  connector_type: "postgresql";
+};
+export type MySQLConnection = SQLAlchemyBaseConnection & {
+  connector_type: "mysql";
+};
+export type MariaDBConnection = SQLAlchemyBaseConnection & {
+  connector_type: "mariadb";
+};
+export type SQLiteConnection = SQLAlchemyBaseConnection & {
+  connector_type: "sqlite";
+};
+export type MSSQLConnection = SQLAlchemyBaseConnection & {
+  connector_type: "mssql";
+  odbc_driver?: string;
+};
+export type SnowflakeConnection = SQLAlchemyBaseConnection & {
+  connector_type: "snowflake";
+  account?: string;
+  warehouse?: string | null;
+  role?: string | null;
+};
+export type BigQueryConnection = SQLAlchemyBaseConnection & {
+  connector_type: "bigquery";
+  project?: string;
+  credentials_path?: string | null;
+};
+export type RedshiftConnection = SQLAlchemyBaseConnection & {
+  connector_type: "redshift";
+};
+export type OracleConnection = SQLAlchemyBaseConnection & {
+  connector_type: "oracle";
+  service_name?: string | null;
+};
+export type ClickHouseConnection = SQLAlchemyBaseConnection & {
+  connector_type: "clickhouse";
+  secure?: boolean;
+};
+export type DatabricksConnection = SQLAlchemyBaseConnection & {
+  connector_type: "databricks";
+  http_path?: string;
+  access_token?: string;
+  catalog?: string | null;
+};
+
+/**
+ * Union of every SQLAlchemy-backed connection variant. Useful as the type
+ * the generic SQLAlchemy form works on.
+ */
+export type SQLAlchemyConnection =
+  | PostgreSQLConnection
+  | MySQLConnection
+  | MariaDBConnection
+  | SQLiteConnection
+  | MSSQLConnection
+  | SnowflakeConnection
+  | BigQueryConnection
+  | RedshiftConnection
+  | OracleConnection
+  | ClickHouseConnection
+  | DatabricksConnection;
+
+export type Connection =
+  | TrinoConnection
+  | DuckDBConnection
+  | SQLAlchemyConnection;
 
 export type ColumnInfo = {
   name: string;

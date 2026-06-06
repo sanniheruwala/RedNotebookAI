@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   defaultDuckDBConnection,
+  defaultForConnector,
   defaultTrinoConnection,
   useConnectionStore,
 } from "@/store/connection-store";
@@ -44,6 +45,7 @@ import type {
   Connection,
   DuckDBConnection,
   SavedConnection,
+  SQLAlchemyConnection,
   TrinoConnection,
 } from "@/lib/types";
 
@@ -83,14 +85,22 @@ export function ConnectionDialog({ children }: { children: React.ReactNode }) {
   const [duckdbDraft, setDuckdbDraft] = React.useState<DuckDBConnection>(
     defaultDuckDBConnection
   );
+  const [sqlAlchemyDraft, setSqlAlchemyDraft] = React.useState<Connection>(
+    defaultForConnector("postgresql")
+  );
 
   const currentDraft: Connection =
-    view.kind === "form" && view.connectorId === "duckdb"
-      ? duckdbDraft
+    view.kind === "form"
+      ? view.connectorId === "duckdb"
+        ? duckdbDraft
+        : view.connectorId === "trino"
+          ? trinoDraft
+          : sqlAlchemyDraft
       : trinoDraft;
   const setCurrentDraft = (next: Connection) => {
     if (next.connector_type === "duckdb") setDuckdbDraft(next);
-    else setTrinoDraft(next);
+    else if (next.connector_type === "trino") setTrinoDraft(next);
+    else setSqlAlchemyDraft(next);
   };
 
   // ---- Mutations ------------------------------------------------------------
@@ -164,6 +174,7 @@ export function ConnectionDialog({ children }: { children: React.ReactNode }) {
   const openAdd = (connectorId: ConnectorId) => {
     if (connectorId === "duckdb") setDuckdbDraft(defaultDuckDBConnection);
     else if (connectorId === "trino") setTrinoDraft(defaultTrinoConnection);
+    else setSqlAlchemyDraft(defaultForConnector(connectorId));
     setView({ kind: "form", connectorId, editingId: null });
   };
 
@@ -171,7 +182,8 @@ export function ConnectionDialog({ children }: { children: React.ReactNode }) {
     try {
       const cfg = await api.loadSavedConnection(record.id);
       if (cfg.connector_type === "duckdb") setDuckdbDraft(cfg);
-      else setTrinoDraft(cfg);
+      else if (cfg.connector_type === "trino") setTrinoDraft(cfg);
+      else setSqlAlchemyDraft(cfg);
       setView({
         kind: "form",
         connectorId: cfg.connector_type as ConnectorId,
@@ -307,7 +319,9 @@ function ListView({
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground">
-          Greyed-out connectors land in v0.7. Trino and DuckDB are live today.
+          All 13 connectors are live. Install the matching driver extra for
+          the SQLAlchemy-backed ones, e.g.{" "}
+          <span className="font-mono">pip install &apos;rednotebook-ai[postgres]&apos;</span>.
         </p>
       </section>
     </>
@@ -509,6 +523,13 @@ function FormView({
           onChange={(v) => onChange(v)}
         />
       )}
+      {connectorId !== "duckdb" && connectorId !== "trino" && (
+        <SQLAlchemyForm
+          connectorId={connectorId}
+          value={value as SQLAlchemyConnection}
+          onChange={(v) => onChange(v)}
+        />
+      )}
 
       <DialogFooter className="gap-2">
         <Button
@@ -637,6 +658,287 @@ function TrinoForm({
         />
         <Label htmlFor="verify">Verify SSL</Label>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Generic form for every SQLAlchemy-backed dialect. Renders the universal
+ * fields (host / port / database / user / password / schema) then any
+ * dialect-specific extras (Snowflake account, Databricks http_path, …).
+ *
+ * SQLite is the special case where only `database` (a file path) is
+ * meaningful — the form collapses to just that.
+ */
+function SQLAlchemyForm({
+  connectorId,
+  value,
+  onChange,
+}: {
+  connectorId: ConnectorId;
+  value: SQLAlchemyConnection;
+  onChange: (next: SQLAlchemyConnection) => void;
+}) {
+  function update<K extends keyof SQLAlchemyConnection>(
+    key: K,
+    val: SQLAlchemyConnection[K]
+  ) {
+    onChange({ ...value, [key]: val } as SQLAlchemyConnection);
+  }
+  const isSqlite = connectorId === "sqlite";
+  const isSnowflake = connectorId === "snowflake";
+  const isBigQuery = connectorId === "bigquery";
+  const isOracle = connectorId === "oracle";
+  const isMSSQL = connectorId === "mssql";
+  const isClickHouse = connectorId === "clickhouse";
+  const isDatabricks = connectorId === "databricks";
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Field label="Connection name" className="col-span-2">
+        <Input
+          value={value.connection_name}
+          onChange={(e) => update("connection_name", e.target.value)}
+        />
+      </Field>
+
+      {isSqlite ? (
+        <Field label="Database file (or :memory:)" className="col-span-2">
+          <Input
+            value={value.database ?? ""}
+            onChange={(e) => update("database", e.target.value)}
+            placeholder=":memory:"
+          />
+        </Field>
+      ) : (
+        <>
+          {isSnowflake && (
+            <Field label="Account locator" className="col-span-2">
+              <Input
+                value={(value as SQLAlchemyConnection & { account?: string }).account ?? ""}
+                onChange={(e) =>
+                  update("account" as keyof SQLAlchemyConnection, e.target.value as never)
+                }
+                placeholder="xy12345.us-east-1"
+              />
+            </Field>
+          )}
+          {isBigQuery && (
+            <Field label="GCP project" className="col-span-2">
+              <Input
+                value={(value as SQLAlchemyConnection & { project?: string }).project ?? ""}
+                onChange={(e) =>
+                  update("project" as keyof SQLAlchemyConnection, e.target.value as never)
+                }
+                placeholder="my-gcp-project"
+              />
+            </Field>
+          )}
+          {isDatabricks && (
+            <Field label="Server hostname" className="col-span-2">
+              <Input
+                value={value.host ?? ""}
+                onChange={(e) => update("host", e.target.value)}
+                placeholder="dbc-123.cloud.databricks.com"
+              />
+            </Field>
+          )}
+          {!isSnowflake && !isBigQuery && !isDatabricks && (
+            <>
+              <Field label="Host" className="col-span-2">
+                <Input
+                  value={value.host ?? ""}
+                  onChange={(e) => update("host", e.target.value)}
+                />
+              </Field>
+              <Field label="Port">
+                <Input
+                  type="number"
+                  value={value.port ?? 0}
+                  onChange={(e) =>
+                    update("port", Number(e.target.value) || 0)
+                  }
+                />
+              </Field>
+              <Field label={isOracle ? "Service name" : "Database"}>
+                <Input
+                  value={
+                    isOracle
+                      ? (value as SQLAlchemyConnection & { service_name?: string | null }).service_name ?? ""
+                      : value.database ?? ""
+                  }
+                  onChange={(e) =>
+                    isOracle
+                      ? update(
+                          "service_name" as keyof SQLAlchemyConnection,
+                          e.target.value as never
+                        )
+                      : update("database", e.target.value)
+                  }
+                />
+              </Field>
+            </>
+          )}
+          {(isSnowflake || isBigQuery) && (
+            <Field label={isBigQuery ? "Default dataset" : "Database"} className="col-span-2">
+              <Input
+                value={value.database ?? ""}
+                onChange={(e) => update("database", e.target.value)}
+              />
+            </Field>
+          )}
+
+          {!isDatabricks && !isBigQuery && (
+            <>
+              <Field label="Username">
+                <Input
+                  value={value.username ?? ""}
+                  onChange={(e) => update("username", e.target.value)}
+                />
+              </Field>
+              <Field label="Password / token">
+                <Input
+                  type="password"
+                  value={value.password ?? ""}
+                  onChange={(e) => update("password", e.target.value)}
+                />
+              </Field>
+            </>
+          )}
+
+          {isSnowflake && (
+            <>
+              <Field label="Warehouse">
+                <Input
+                  value={(value as SQLAlchemyConnection & { warehouse?: string | null }).warehouse ?? ""}
+                  onChange={(e) =>
+                    update("warehouse" as keyof SQLAlchemyConnection, e.target.value as never)
+                  }
+                />
+              </Field>
+              <Field label="Role">
+                <Input
+                  value={(value as SQLAlchemyConnection & { role?: string | null }).role ?? ""}
+                  onChange={(e) =>
+                    update("role" as keyof SQLAlchemyConnection, e.target.value as never)
+                  }
+                />
+              </Field>
+            </>
+          )}
+          {isBigQuery && (
+            <Field
+              label="Credentials JSON path (optional)"
+              className="col-span-2"
+            >
+              <Input
+                value={
+                  (value as SQLAlchemyConnection & { credentials_path?: string | null })
+                    .credentials_path ?? ""
+                }
+                onChange={(e) =>
+                  update(
+                    "credentials_path" as keyof SQLAlchemyConnection,
+                    (e.target.value || null) as never
+                  )
+                }
+                placeholder="/path/to/service-account.json"
+              />
+            </Field>
+          )}
+          {isMSSQL && (
+            <Field label="ODBC driver" className="col-span-2">
+              <Input
+                value={
+                  (value as SQLAlchemyConnection & { odbc_driver?: string })
+                    .odbc_driver ?? ""
+                }
+                onChange={(e) =>
+                  update(
+                    "odbc_driver" as keyof SQLAlchemyConnection,
+                    e.target.value as never
+                  )
+                }
+              />
+            </Field>
+          )}
+          {isClickHouse && (
+            <div className="col-span-2 flex items-center gap-2">
+              <Switch
+                id="ch-secure"
+                checked={
+                  !!(value as SQLAlchemyConnection & { secure?: boolean }).secure
+                }
+                onCheckedChange={(v) =>
+                  update("secure" as keyof SQLAlchemyConnection, v as never)
+                }
+              />
+              <Label htmlFor="ch-secure">Use HTTPS (port 8443)</Label>
+            </div>
+          )}
+          {isDatabricks && (
+            <>
+              <Field label="HTTP path" className="col-span-2">
+                <Input
+                  value={
+                    (value as SQLAlchemyConnection & { http_path?: string })
+                      .http_path ?? ""
+                  }
+                  onChange={(e) =>
+                    update(
+                      "http_path" as keyof SQLAlchemyConnection,
+                      e.target.value as never
+                    )
+                  }
+                  placeholder="/sql/1.0/warehouses/abc"
+                />
+              </Field>
+              <Field label="Access token" className="col-span-2">
+                <Input
+                  type="password"
+                  value={
+                    (value as SQLAlchemyConnection & { access_token?: string })
+                      .access_token ?? ""
+                  }
+                  onChange={(e) =>
+                    update(
+                      "access_token" as keyof SQLAlchemyConnection,
+                      e.target.value as never
+                    )
+                  }
+                />
+              </Field>
+              <Field label="Catalog">
+                <Input
+                  value={
+                    (value as SQLAlchemyConnection & { catalog?: string | null })
+                      .catalog ?? ""
+                  }
+                  onChange={(e) =>
+                    update(
+                      "catalog" as keyof SQLAlchemyConnection,
+                      (e.target.value || null) as never
+                    )
+                  }
+                />
+              </Field>
+              <Field label="Schema">
+                <Input
+                  value={value.schema ?? ""}
+                  onChange={(e) => update("schema", e.target.value || null)}
+                />
+              </Field>
+            </>
+          )}
+          {!isDatabricks && !isSqlite && !isOracle && (
+            <Field label="Default schema (optional)" className="col-span-2">
+              <Input
+                value={value.schema ?? ""}
+                onChange={(e) => update("schema", e.target.value || null)}
+              />
+            </Field>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -51,10 +51,112 @@ class DuckDBConnectionPayload(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class _SQLAlchemyBasePayload(BaseModel):
+    """Common shape for SQLAlchemy-backed connector payloads.
+
+    Subclasses pin ``connector_type``; the dispatcher in
+    :mod:`rednotebook.server.dependencies` routes them to the matching
+    config + connector class. Fields a given dialect doesn't use (e.g.
+    ``host`` for SQLite) are simply ignored downstream.
+    """
+
+    connection_name: str = "default"
+    host: str = ""
+    port: int = 0
+    database: str = ""
+    username: str = ""
+    password: str | None = None
+    schema_name: str | None = Field(default=None, alias="schema")
+    query_timeout_seconds: int = 300
+    max_result_rows: int = 10_000
+    connect_args: dict[str, Any] = Field(default_factory=dict)
+    url_params: dict[str, str] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
+
+
+class PostgreSQLConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["postgresql"] = "postgresql"
+    port: int = 5432
+    database: str = "postgres"
+
+
+class MySQLConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["mysql"] = "mysql"
+    port: int = 3306
+
+
+class MariaDBConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["mariadb"] = "mariadb"
+    port: int = 3306
+
+
+class SQLiteConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["sqlite"] = "sqlite"
+    database: str = ":memory:"
+
+
+class MSSQLConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["mssql"] = "mssql"
+    port: int = 1433
+    odbc_driver: str = "ODBC Driver 18 for SQL Server"
+
+
+class SnowflakeConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["snowflake"] = "snowflake"
+    account: str = ""
+    warehouse: str | None = None
+    role: str | None = None
+
+
+class BigQueryConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["bigquery"] = "bigquery"
+    project: str = ""
+    credentials_path: str | None = None
+
+
+class RedshiftConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["redshift"] = "redshift"
+    port: int = 5439
+
+
+class OracleConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["oracle"] = "oracle"
+    port: int = 1521
+    service_name: str | None = None
+
+
+class ClickHouseConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["clickhouse"] = "clickhouse"
+    port: int = 8123
+    secure: bool = False
+
+
+class DatabricksConnectionPayload(_SQLAlchemyBasePayload):
+    connector_type: Literal["databricks"] = "databricks"
+    http_path: str = ""
+    access_token: str = ""
+    catalog: str | None = None
+
+
 # Discriminated union: the connector_type field tells pydantic which payload
 # shape to validate against. Routes that take a "connection" should use this
-# type so they accept both Trino and DuckDB transparently.
-ConnectionPayload = TrinoConnectionPayload | DuckDBConnectionPayload
+# type so they accept every connector transparently.
+ConnectionPayload = (
+    TrinoConnectionPayload
+    | DuckDBConnectionPayload
+    | PostgreSQLConnectionPayload
+    | MySQLConnectionPayload
+    | MariaDBConnectionPayload
+    | SQLiteConnectionPayload
+    | MSSQLConnectionPayload
+    | SnowflakeConnectionPayload
+    | BigQueryConnectionPayload
+    | RedshiftConnectionPayload
+    | OracleConnectionPayload
+    | ClickHouseConnectionPayload
+    | DatabricksConnectionPayload
+)
 
 
 class TestConnectionResponse(BaseModel):

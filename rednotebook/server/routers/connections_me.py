@@ -77,11 +77,45 @@ def _summary_from_payload(payload: ConnectionPayload) -> dict[str, Any]:
             "catalog": None,
             "schema_name": None,
         }
+    if payload.connector_type == "trino":
+        return {
+            "host": payload.host,
+            "catalog": payload.catalog,
+            "schema_name": payload.schema_name,
+        }
+    # SQLAlchemy-backed connectors share a flat shape: host + database.
     return {
-        "host": payload.host,
-        "catalog": payload.catalog,
-        "schema_name": payload.schema_name,
+        "host": getattr(payload, "host", "") or getattr(payload, "database", ""),
+        "catalog": None,
+        "schema_name": getattr(payload, "schema_name", None),
     }
+
+
+_PAYLOAD_BY_TYPE: dict[str, Any] | None = None
+
+
+def _payload_classes() -> dict[str, Any]:
+    """Lazy map of connector_type → payload class."""
+    global _PAYLOAD_BY_TYPE
+    if _PAYLOAD_BY_TYPE is None:
+        from rednotebook.server import schemas as _s
+
+        _PAYLOAD_BY_TYPE = {
+            "trino": _s.TrinoConnectionPayload,
+            "duckdb": _s.DuckDBConnectionPayload,
+            "postgresql": _s.PostgreSQLConnectionPayload,
+            "mysql": _s.MySQLConnectionPayload,
+            "mariadb": _s.MariaDBConnectionPayload,
+            "sqlite": _s.SQLiteConnectionPayload,
+            "mssql": _s.MSSQLConnectionPayload,
+            "snowflake": _s.SnowflakeConnectionPayload,
+            "bigquery": _s.BigQueryConnectionPayload,
+            "redshift": _s.RedshiftConnectionPayload,
+            "oracle": _s.OracleConnectionPayload,
+            "clickhouse": _s.ClickHouseConnectionPayload,
+            "databricks": _s.DatabricksConnectionPayload,
+        }
+    return _PAYLOAD_BY_TYPE
 
 
 def _payload_from_record(
@@ -91,14 +125,13 @@ def _payload_from_record(
     raw = store.decrypt_config(record)
     # Backfill connector_type for legacy entries that pre-date the union.
     raw.setdefault("connector_type", record.connector_type or "trino")
-    from rednotebook.server.schemas import (
-        DuckDBConnectionPayload,
-        TrinoConnectionPayload,
-    )
+    klass = _payload_classes().get(raw["connector_type"])
+    if klass is None:
+        # Unknown type — fall back to Trino to surface a clearer error later.
+        from rednotebook.server.schemas import TrinoConnectionPayload
 
-    if raw["connector_type"] == "duckdb":
-        return DuckDBConnectionPayload.model_validate(raw)
-    return TrinoConnectionPayload.model_validate(raw)
+        klass = TrinoConnectionPayload
+    return klass.model_validate(raw)
 
 
 # ----- Endpoints -------------------------------------------------------------

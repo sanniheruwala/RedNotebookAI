@@ -52,15 +52,19 @@ def build_trino_connector(payload: TrinoConnectionPayload) -> TrinoConnector:
 
 
 def build_connector(payload):  # type: ignore[no-untyped-def]
-    """Build a connector from any ConnectionPayload (Trino or DuckDB).
+    """Build a connector from any ConnectionPayload.
 
-    Dispatches on the discriminator field so new connectors can be added
-    without touching every router. Always prefer this over the
-    Trino-specific helper above.
+    Dispatches on the discriminator field. Trino and DuckDB keep their own
+    bespoke connector classes; the remaining 11 dialects share the generic
+    SQLAlchemy connector and only differ in URL building.
     """
     from rednotebook.connectors.duckdb import (
         DuckDBConnectionConfig,
         DuckDBConnector,
+    )
+    from rednotebook.connectors.sqlalchemy_dialects import (
+        CONFIG_BY_CONNECTOR,
+        CONNECTOR_BY_TYPE,
     )
 
     connector_type = getattr(payload, "connector_type", "trino")
@@ -74,6 +78,14 @@ def build_connector(payload):  # type: ignore[no-untyped-def]
             max_result_rows=payload.max_result_rows,
         )
         return DuckDBConnector(cfg)
+    if connector_type in CONNECTOR_BY_TYPE:
+        config_cls = CONFIG_BY_CONNECTOR[connector_type]
+        connector_cls = CONNECTOR_BY_TYPE[connector_type]
+        # Build a config dict from the payload, dropping unset / None fields
+        # so the dialect's defaults (e.g. default port) win for absent input.
+        raw = payload.model_dump(mode="python", by_alias=False)
+        cfg = config_cls(**raw)
+        return connector_cls(cfg)
     return build_trino_connector(payload)
 
 
