@@ -13,7 +13,7 @@ export function formatBytes(bytes: number): string {
 }
 
 export function formatDuration(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "—";
+  if (!Number.isFinite(seconds) || seconds < 0) return "-";
   if (seconds < 1) return `${Math.round(seconds * 1000)} ms`;
   if (seconds < 60) return `${seconds.toFixed(2)} s`;
   const minutes = Math.floor(seconds / 60);
@@ -22,6 +22,6 @@ export function formatDuration(seconds: number): string {
 }
 
 export function formatNumber(value: number): string {
-  if (!Number.isFinite(value)) return "—";
+  if (!Number.isFinite(value)) return "-";
   return new Intl.NumberFormat().format(value);
 }

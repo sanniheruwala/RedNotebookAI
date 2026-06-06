@@ -5,7 +5,7 @@ alongside the SQL notebook.
 
 ## Two modes
 
-### Mode A — Internal knowledge notebook (default)
+### Mode A. Internal knowledge notebook (default)
 
 Implemented today. Backed by local JSON files. Stores:
 
@@ -20,7 +20,7 @@ Implemented today. Backed by local JSON files. Stores:
 
 This works fully offline.
 
-### Mode B — NotebookLM Enterprise (experimental stub)
+### Mode B. NotebookLM Enterprise (experimental stub)
 
 Shipped as a clean, disabled stub. We **do not** scrape NotebookLM or use
 unofficial endpoints. To enable later, the user must:

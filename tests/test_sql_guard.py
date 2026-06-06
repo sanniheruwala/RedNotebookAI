@@ -1,4 +1,4 @@
-"""SQL guard tests — no external deps required."""
+"""SQL guard tests, no external deps required."""
 
 from rednotebook.security.sql_guard import SQLGuardVerdict, check_sql
 

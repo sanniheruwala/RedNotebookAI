@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* Light theme — clean off-white with brand-green accents */
+    /* Light theme, clean off-white with brand-green accents */
     --background: 150 20% 98%;
     --foreground: 150 20% 10%;
     --card: 0 0% 100%;
@@ -33,36 +33,39 @@
   }
 
   .dark {
-    /* Dark theme — deep slate-green, Linear-inspired */
-    --background: 150 18% 5%;
-    --foreground: 150 8% 96%;
-    --card: 150 16% 8%;
-    --card-foreground: 150 8% 96%;
-    --popover: 150 18% 7%;
-    --popover-foreground: 150 8% 96%;
-    --primary: 142 71% 45%;
-    --primary-foreground: 150 18% 5%;
-    --secondary: 150 14% 12%;
-    --secondary-foreground: 150 8% 96%;
-    --muted: 150 14% 12%;
-    --muted-foreground: 150 8% 60%;
-    --accent: 150 16% 14%;
-    --accent-foreground: 150 8% 96%;
-    --destructive: 0 62% 46%;
-    --destructive-foreground: 150 8% 96%;
-    --border: 150 14% 16%;
-    --input: 150 14% 16%;
-    --ring: 142 71% 45%;
+    /* Dark theme, deep slate-green, Linear-inspired */
+    --background: 150 22% 4%;
+    --foreground: 150 8% 97%;
+    --card: 150 18% 7%;
+    --card-foreground: 150 8% 97%;
+    --popover: 150 20% 6%;
+    --popover-foreground: 150 8% 97%;
+    --primary: 142 72% 48%;
+    --primary-foreground: 150 22% 4%;
+    --secondary: 150 14% 11%;
+    --secondary-foreground: 150 8% 97%;
+    --muted: 150 14% 11%;
+    --muted-foreground: 150 8% 62%;
+    --accent: 150 16% 13%;
+    --accent-foreground: 150 8% 97%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 150 8% 97%;
+    --border: 150 14% 18%;
+    --input: 150 14% 18%;
+    --ring: 142 72% 48%;
 
-    --mesh-1: 142 71% 45%;
+    --mesh-1: 142 72% 50%;
     --mesh-2: 150 33% 17%;
-    --mesh-3: 168 65% 30%;
+    --mesh-3: 168 65% 35%;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
   }
   html,
   body {
@@ -107,25 +110,76 @@
     @apply bg-muted-foreground/40;
   }
 
-  /* Mesh background — subtle radial gradient blobs */
+  /* Mesh background, radial gradient blobs in brand colors */
   .app-mesh {
     background-color: hsl(var(--background));
     background-image:
       radial-gradient(
-        ellipse 60% 50% at 12% -8%,
-        hsl(var(--mesh-1) / 0.10) 0%,
+        ellipse 65% 55% at 8% -10%,
+        hsl(var(--mesh-1) / 0.14) 0%,
         transparent 60%
       ),
       radial-gradient(
-        ellipse 50% 40% at 88% 110%,
-        hsl(var(--mesh-3) / 0.10) 0%,
+        ellipse 55% 45% at 92% 115%,
+        hsl(var(--mesh-3) / 0.14) 0%,
         transparent 60%
       ),
       radial-gradient(
-        ellipse 40% 30% at 70% 20%,
-        hsl(var(--mesh-2) / 0.08) 0%,
+        ellipse 42% 32% at 72% 22%,
+        hsl(var(--mesh-2) / 0.10) 0%,
         transparent 70%
       );
+  }
+
+  /* Premium hover surface, subtle warm halo on hover */
+  .hover-surface {
+    transition: background-color 200ms ease, box-shadow 200ms ease;
+  }
+  .hover-surface:hover {
+    background-color: hsl(var(--accent) / 0.7);
+  }
+
+  /* AG Grid: brand-aligned overrides */
+  .ag-rednotebook.ag-theme-quartz,
+  .ag-rednotebook.ag-theme-quartz-dark {
+    --ag-font-family: var(--font-sans), -apple-system, BlinkMacSystemFont,
+      "Segoe UI", sans-serif;
+    --ag-font-size: 12px;
+    --ag-border-radius: 0.75rem;
+    --ag-grid-size: 6px;
+    --ag-cell-horizontal-padding: 12px;
+    --ag-row-hover-color: hsl(var(--primary) / 0.06);
+    --ag-selected-row-background-color: hsl(var(--primary) / 0.10);
+    --ag-range-selection-background-color: hsl(var(--primary) / 0.15);
+    --ag-range-selection-border-color: hsl(var(--primary) / 0.55);
+    --ag-checkbox-checked-color: hsl(var(--primary));
+    --ag-input-focus-border-color: hsl(var(--primary));
+    --ag-control-panel-background-color: hsl(var(--card));
+    --ag-header-foreground-color: hsl(var(--muted-foreground));
+  }
+  .ag-rednotebook.ag-theme-quartz-dark {
+    --ag-background-color: hsl(var(--card));
+    --ag-foreground-color: hsl(var(--foreground));
+    --ag-header-background-color: hsl(var(--muted) / 0.4);
+    --ag-odd-row-background-color: hsl(var(--card));
+    --ag-row-border-color: hsl(var(--border) / 0.7);
+    --ag-border-color: hsl(var(--border));
+    --ag-secondary-foreground-color: hsl(var(--muted-foreground));
+  }
+  .ag-rednotebook.ag-theme-quartz {
+    --ag-background-color: hsl(var(--card));
+    --ag-foreground-color: hsl(var(--foreground));
+    --ag-header-background-color: hsl(var(--muted) / 0.5);
+    --ag-odd-row-background-color: hsl(var(--muted) / 0.25);
+    --ag-row-border-color: hsl(var(--border));
+    --ag-border-color: hsl(var(--border));
+  }
+  .ag-rednotebook .ag-header-cell-label {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .ag-rednotebook .ag-cell {
+    font-family: var(--font-mono), ui-monospace, monospace;
   }
 
   /* Glass-morphism for panels */

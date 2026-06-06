@@ -46,14 +46,14 @@ export function MarkdownCell({ cell }: { cell: MarkdownCellType }) {
             )
           }
           rows={6}
-          placeholder="Write markdown — supports **bold**, *italic*, [links](url), code blocks, tables…"
+          placeholder="Write markdown, supports **bold**, *italic*, [links](url), code blocks, tables…"
           className="resize-y border-none bg-transparent p-0 font-mono text-sm leading-relaxed shadow-none focus-visible:ring-0"
           autoFocus
         />
       ) : (
         <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none prose-headings:tracking-tightish prose-headings:font-semibold prose-p:leading-relaxed prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-[12px] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {cell.source || "*Empty markdown cell — click the pencil to edit*"}
+            {cell.source || "*Empty markdown cell, click the pencil to edit*"}
           </ReactMarkdown>
         </div>
       )}

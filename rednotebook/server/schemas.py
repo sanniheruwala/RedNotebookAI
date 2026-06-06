@@ -183,6 +183,18 @@ class KnowledgeSourceListResponse(BaseModel):
     sources: list[KnowledgeSource]
 
 
+class KnowledgeChatRequest(BaseModel):
+    notebook_id: str
+    question: str
+    source_ids: list[str] = Field(default_factory=list)
+
+
+class KnowledgeChatResponse(BaseModel):
+    answer: str
+    provider: str
+    cited_source_ids: list[str] = Field(default_factory=list)
+
+
 class AddSourceRequest(BaseModel):
     notebook_id: str
     source_type: Literal[

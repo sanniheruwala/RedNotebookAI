@@ -1,6 +1,6 @@
 # Roadmap
 
-## Phase 1 — MVP (this release)
+## Phase 1. MVP (this release)
 
 - Trino HTTPS connector
 - Notebook UI (SQL, Markdown, AI prompt cells)
@@ -11,7 +11,7 @@
 - Notebook persistence (local JSON)
 - FastAPI HTTP layer + Typer CLI + Docker
 
-## Phase 2 — Polish & analyst tooling
+## Phase 2. Polish & analyst tooling
 
 - AI chat over knowledge sources
 - Better infographic templates + PDF/PNG export (kaleido + headless Chrome)
@@ -20,13 +20,13 @@
 - Python cell type (where notebook host allows)
 - Better profiling (histograms, mutual-info hints)
 
-## Phase 3 — More connectors
+## Phase 3. More connectors
 
 - PostgreSQL, MySQL, BigQuery, Snowflake, Redshift, Athena
 - Databricks SQL, DuckDB, ClickHouse
 - CSV / Excel / Google Sheets upload
 
-## Phase 4 — Collaboration / SaaS
+## Phase 4. Collaboration / SaaS
 
 - Git-backed notebooks
 - Sharing + comments

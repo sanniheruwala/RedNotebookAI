@@ -8,8 +8,8 @@ Thanks for helping keep RedNotebook AI safe.
 
 Use one of these private channels instead:
 
-- GitHub's [private vulnerability reporting](https://github.com/sanniheruwala/QueryCanvasAI/security/advisories/new) (preferred)
-- Email: `sam.heruwala@gmail.com` with `[security] QueryCanvasAI` in the subject
+- GitHub's [private vulnerability reporting](https://github.com/sanniheruwala/RedNotebookAI/security/advisories/new) (preferred)
+- Email: `sam.heruwala@gmail.com` with `[security] RedNotebookAI` in the subject
 
 Please include:
 
@@ -31,7 +31,7 @@ RedNotebook AI is pre-1.0. Only the `main` branch receives security fixes.
 | Version | Supported |
 |---------|-----------|
 | `main` (latest commit) | ✅ |
-| Tagged pre-releases | ❌ — please upgrade |
+| Tagged pre-releases | ❌, please upgrade |
 
 ## Scope
 

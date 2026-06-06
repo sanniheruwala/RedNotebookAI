@@ -1,4 +1,4 @@
-"""AI context builder tests — verifies privacy defaults and masking."""
+"""AI context builder tests, verifies privacy defaults and masking."""
 
 import pytest
 

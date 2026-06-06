@@ -74,7 +74,7 @@ class QueryResult:
 
 
 class BaseConnector(ABC):
-    """Abstract connector interface — every connector must implement this."""
+    """Abstract connector interface, every connector must implement this."""
 
     config: ConnectionConfig
 

@@ -4,7 +4,7 @@ Default: read-only analytics. Write/destructive statements are blocked unless
 the caller explicitly enables them via ``allow_write_queries=True``.
 
 The guard tries to use sqlglot when available (more robust) and falls back to
-a keyword scanner. Both layers are conservative — when in doubt, block.
+a keyword scanner. Both layers are conservative, when in doubt, block.
 """
 
 from __future__ import annotations
@@ -125,7 +125,7 @@ def check_sql(sql: str, *, allow_write_queries: bool = False) -> SQLGuardResult:
 
     statements = _split_statements(sql)
     if len(statements) > 1:
-        # Multiple statements raise the risk surface — evaluate each.
+        # Multiple statements raise the risk surface, evaluate each.
         verdicts: list[SQLGuardResult] = [
             check_sql(stmt, allow_write_queries=allow_write_queries) for stmt in statements
         ]
@@ -187,7 +187,7 @@ def check_sql(sql: str, *, allow_write_queries: bool = False) -> SQLGuardResult:
         )
 
     if not is_dangerous and leading and leading not in SAFE_LEADING_KEYWORDS:
-        # Unknown leading keyword — be conservative.
+        # Unknown leading keyword, be conservative.
         return SQLGuardResult(
             verdict=SQLGuardVerdict.BLOCKED,
             reasons=[f"Unrecognized leading keyword: {leading}"],
@@ -199,7 +199,7 @@ def check_sql(sql: str, *, allow_write_queries: bool = False) -> SQLGuardResult:
     if allow_write_queries:
         return SQLGuardResult(
             verdict=SQLGuardVerdict.WARN,
-            reasons=[reason, "Writes are enabled — confirm before executing."],
+            reasons=[reason, "Writes are enabled, confirm before executing."],
             dangerous_keywords=dangerous or ([sqlglot_type] if sqlglot_type else []),
             statement_type=statement_type,
         )
@@ -215,7 +215,7 @@ def _sqlglot_root_type(sql: str) -> str | None:
     """Best-effort statement classification using sqlglot.
 
     Returns the SQLGlot expression class name (uppercased) or None when parsing
-    fails or sqlglot is unavailable. Falls back gracefully — the keyword
+    fails or sqlglot is unavailable. Falls back gracefully, the keyword
     scanner remains the primary defense.
     """
     try:

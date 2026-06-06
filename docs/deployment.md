@@ -2,19 +2,19 @@
 
 RedNotebook AI is **local-first**. It runs great on a laptop and is suitable
 for self-hosting in trusted environments. It is **not** ready to expose on
-the public internet yet — see the tiers below for what's safe today.
+the public internet yet, see the tiers below for what's safe today.
 
 ## Three deployment tiers
 
 | Tier | Audience | Network | Status | Recommended? |
 |------|----------|---------|--------|--------------|
-| 1. Local laptop | Just you | `localhost` only | ✅ **Supported** | Yes — this is the primary use case |
+| 1. Local laptop | Just you | `localhost` only | ✅ **Supported** | Yes, this is the primary use case |
 | 2. Single team, behind VPN / private network | A trusted team | LAN / VPN / private k8s | ✅ **Supported with caveats** | Yes, with the hardening checklist below |
-| 3. Public internet, multi-user SaaS | The whole world | Public TCP/443 | ❌ **NOT supported** | No — wait for Phase 4 |
+| 3. Public internet, multi-user SaaS | The whole world | Public TCP/443 | ❌ **NOT supported** | No, wait for Phase 4 |
 
 ---
 
-## Tier 1 — Local laptop
+## Tier 1. Local laptop
 
 The intended primary use case. Run the backend and frontend on your machine
 and use them from `http://localhost:3000`.
@@ -32,9 +32,9 @@ cd frontend && npm install && npm run dev   # Next.js on :3000
 
 **What's safe at this tier:**
 
-- Connection credentials live in your browser's `localStorage` — they never
+- Connection credentials live in your browser's `localStorage`, they never
   leave your machine.
-- AI provider keys live in your local `.env` — they go from your machine to
+- AI provider keys live in your local `.env`, they go from your machine to
   the AI provider directly.
 - Notebooks and the knowledge layer persist to `local_data/` on your disk.
 
@@ -47,18 +47,18 @@ cd frontend && npm install && npm run dev   # Next.js on :3000
 
 ---
 
-## Tier 2 — Single team behind a VPN / private network
+## Tier 2. Single team behind a VPN / private network
 
 Acceptable for a small, trusted team that shares one instance behind a
 private network (LAN, corporate VPN, Tailscale, private k8s cluster, etc).
 
 The model is still **single-tenant**: there's no per-user login or notebook
-ownership — everyone with network access sees the same notebooks and
+ownership, everyone with network access sees the same notebooks and
 connections. Think of it like sharing one Jupyter server.
 
 ### Hardening checklist before going live
 
-- [ ] Run behind a **VPN or private network only** — never bind `0.0.0.0`
+- [ ] Run behind a **VPN or private network only**, never bind `0.0.0.0`
       on a public IP.
 - [ ] Put both services behind a **reverse proxy with TLS** (nginx, Caddy,
       Traefik). Don't expose plain HTTP.
@@ -68,9 +68,9 @@ connections. Think of it like sharing one Jupyter server.
 - [ ] Run as a **non-root user** inside the container. The shipped Dockerfile
       already does this implicitly via `python:3.11-slim`, but verify.
 - [ ] Restrict the Trino service account RedNotebook uses to **read-only**.
-      Set `ALLOW_WRITE_QUERIES=false` (the default) — never override.
+      Set `ALLOW_WRITE_QUERIES=false` (the default), never override.
 - [ ] **Rotate AI provider keys** if anyone leaves the team.
-- [ ] Mount `local_data/` on a backed-up volume — that's where notebooks +
+- [ ] Mount `local_data/` on a backed-up volume, that's where notebooks +
       knowledge sources live.
 - [ ] Keep `AI_ALLOW_SAMPLE_ROWS=false` and `AI_MASK_PII=true` unless every
       user is cleared to share raw rows with the chosen AI provider.
@@ -111,18 +111,18 @@ rednotebook.internal {
 
 ---
 
-## Tier 3 — Public internet (NOT supported yet)
+## Tier 3. Public internet (NOT supported yet)
 
 **Do not expose RedNotebook AI on the public internet today.** The gaps:
 
-- No authentication or user model — anyone with the URL gets full access.
-- No per-user namespacing — notebooks, knowledge, and connection state are
+- No authentication or user model, anyone with the URL gets full access.
+- No per-user namespacing, notebooks, knowledge, and connection state are
   global. One user editing a notebook overwrites everyone else's view of it.
-- Connection credentials live in browser localStorage — fine when "the
+- Connection credentials live in browser localStorage, fine when "the
   browser" is your laptop, problematic when you're inviting strangers.
-- No rate limiting — the AI and query endpoints can be abused for
+- No rate limiting, the AI and query endpoints can be abused for
   cost-amplification attacks against your AI provider account.
-- No audit logging — you can't tell who ran what.
+- No audit logging, you can't tell who ran what.
 
 The Phase 4 roadmap covers all of this:
 
@@ -143,7 +143,7 @@ Even at Tier 1, treat AI provider keys as production credentials:
 
 - **OpenAI / Anthropic:** create a key scoped only to RedNotebook. Set a
   monthly spend cap. Rotate quarterly.
-- **Ollama:** the local model runs entirely on your machine — no key needed.
+- **Ollama:** the local model runs entirely on your machine, no key needed.
   Prefer this when working with sensitive data.
 
 The AI context builder defaults to **schema + aggregated stats only**, with

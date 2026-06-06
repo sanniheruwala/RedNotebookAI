@@ -38,4 +38,4 @@ print("ok" if connector.test_connection() else "failed")
 With self-signed certificates, point `ca_certificate_path` at the CA bundle.
 
 For Kerberos / OAuth flows, plug them in via `http_headers` and
-`session_properties` — the connector forwards both to the Trino client.
+`session_properties`, the connector forwards both to the Trino client.

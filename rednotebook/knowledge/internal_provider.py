@@ -1,4 +1,4 @@
-"""Default internal provider — thin wrapper around InternalKnowledgeStore."""
+"""Default internal provider, thin wrapper around InternalKnowledgeStore."""
 
 from __future__ import annotations
 

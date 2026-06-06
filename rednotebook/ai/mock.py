@@ -1,4 +1,4 @@
-"""Deterministic mock AI provider — works offline and in tests."""
+"""Deterministic mock AI provider, works offline and in tests."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ class MockAIProvider(AIProvider):
         if context.schema.columns:
             cols = ", ".join(c["name"] for c in context.schema.columns[:5])
             bullets.append(f"- **Top columns:** {cols}")
-        bullets.append("- (Mock summary — connect a real AI provider for deeper insight.)")
+        bullets.append("- (Mock summary, connect a real AI provider for deeper insight.)")
         return "## Mock result summary\n\n" + "\n".join(bullets)
 
     def generate_infographic_brief(
@@ -79,12 +79,12 @@ class MockAIProvider(AIProvider):
         if schema.row_count:
             key_metrics.append({"label": "Rows", "value": schema.row_count})
         for col in schema.columns[:3]:
-            key_metrics.append({"label": col["name"], "value": col.get("data_type", "—")})
+            key_metrics.append({"label": col["name"], "value": col.get("data_type", "-")})
 
         insights = [
             "Result returned a non-empty dataset." if schema.row_count else "Result was empty.",
             f"Schema has {len(schema.columns)} columns.",
-            "Mock insights — connect a real AI provider for narrative analysis.",
+            "Mock insights, connect a real AI provider for narrative analysis.",
         ]
         chart = self.suggest_chart(schema, context.sample_rows)
         return InfographicBrief(
@@ -99,7 +99,7 @@ class MockAIProvider(AIProvider):
                 "Configure a real provider (OpenAI, Anthropic, or Ollama) to enrich the narrative."
             ),
             caveats=[
-                "Generated without a live model — narratives are templated.",
+                "Generated without a live model, narratives are templated.",
                 "Numbers reflect only the rows fetched, not necessarily all rows.",
             ],
         )

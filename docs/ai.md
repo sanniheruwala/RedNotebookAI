@@ -13,10 +13,10 @@
 
 Implementations register themselves at import time:
 
-- `MockAIProvider` — deterministic, offline. Always available.
-- `OpenAIProvider` — requires `OPENAI_API_KEY` and the `openai` package.
-- `AnthropicProvider` — requires `ANTHROPIC_API_KEY` and the `anthropic` package.
-- `OllamaProvider` — requires a running Ollama server (no extra deps).
+- `MockAIProvider`, deterministic, offline. Always available.
+- `OpenAIProvider`, requires `OPENAI_API_KEY` and the `openai` package.
+- `AnthropicProvider`, requires `ANTHROPIC_API_KEY` and the `anthropic` package.
+- `OllamaProvider`, requires a running Ollama server (no extra deps).
 
 The registry returns `MockAIProvider` whenever the configured provider can't
 be instantiated. Local development is always frictionless.
@@ -27,8 +27,8 @@ be instantiated. Local development is always frictionless.
 
 | Mode | Schema | Aggregated stats | Sample rows |
 |------|--------|------------------|-------------|
-| `schema_only` | ✅ | — | — |
-| `schema_and_stats` (default) | ✅ | ✅ | — |
+| `schema_only` | ✅ |, |, |
+| `schema_and_stats` (default) | ✅ | ✅ |, |
 | `schema_stats_samples` | ✅ | ✅ | only when `AI_ALLOW_SAMPLE_ROWS=true` |
 
 When samples are included, PII / Restricted columns are masked. Secrets are
@@ -36,7 +36,7 @@ stripped from SQL before any provider call.
 
 ## SQL generation safety
 
-- Generated SQL is **never executed automatically** — it shows up in the
+- Generated SQL is **never executed automatically**, it shows up in the
   notebook for the user to inspect first.
 - Writes are blocked unless `ALLOW_WRITE_QUERIES=true` and even then require
   explicit confirmation.

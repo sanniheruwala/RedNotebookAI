@@ -1,6 +1,6 @@
 """Prompt templates for AI providers.
 
-These are intentionally plain strings — providers can adapt as needed.
+These are intentionally plain strings, providers can adapt as needed.
 """
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 SQL_GENERATION_SYSTEM = (
     "You are RedNotebook AI's SQL assistant. Generate read-only, ANSI-compatible SQL "
     "for Trino. Never produce destructive statements (INSERT/UPDATE/DELETE/DROP/...). "
-    "Always return SQL only — no prose, no markdown fences."
+    "Always return SQL only, no prose, no markdown fences."
 )
 
 SQL_EXPLAIN_SYSTEM = (

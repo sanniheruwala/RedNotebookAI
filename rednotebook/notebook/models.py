@@ -120,7 +120,7 @@ class Notebook(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     # ----- Immutable mutation helpers ----------------------------------------
-    # Every operation returns a NEW Notebook — callers must replace their handle.
+    # Every operation returns a NEW Notebook, callers must replace their handle.
     def add_cell(self, cell: Cell, *, position: int | None = None) -> Notebook:
         cells = list(self.cells)
         if position is None or position >= len(cells):

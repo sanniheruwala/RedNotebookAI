@@ -64,7 +64,7 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
             )
           }
           rows={3}
-          placeholder="Ask in plain English — e.g. “top 10 customers by revenue this quarter”"
+          placeholder="Ask in plain English, e.g. “top 10 customers by revenue this quarter”"
           className="resize-y border-none bg-transparent p-0 text-sm leading-relaxed shadow-none focus-visible:ring-0"
         />
         <div className="mt-3 flex items-center gap-2">

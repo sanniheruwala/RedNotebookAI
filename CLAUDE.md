@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-# RedNotebook AI — Open-Source AI Data Notebook
+# RedNotebook AI. Open-Source AI Data Notebook
 
 ## Project Identity
 
@@ -24,7 +24,7 @@ But it should remain lightweight, open-source, developer-friendly, and easy to r
 
 Build this as:
 
-> Open-source AI data notebook for Trino and modern data platforms — query, visualize, profile, and explore data with beautiful charts, AI suggestions, and NotebookLM-style knowledge reports.
+> Open-source AI data notebook for Trino and modern data platforms, query, visualize, profile, and explore data with beautiful charts, AI suggestions, and NotebookLM-style knowledge reports.
 
 ## Core MVP Goal
 

@@ -20,7 +20,7 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "RedNotebook AI — an AI data notebook by RedAnalytica",
+    default: "RedNotebook AI, an AI data notebook by RedAnalytica",
     template: "%s · RedNotebook AI",
   },
   description:
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "RedNotebook AI",
     description:
-      "Open-source AI data notebook for Trino — by RedAnalytica.",
+      "Open-source AI data notebook for Trino, by RedAnalytica.",
     type: "website",
   },
 };

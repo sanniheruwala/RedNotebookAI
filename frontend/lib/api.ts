@@ -145,6 +145,16 @@ export const api = {
   listKnowledgeSources: (notebookId: string) =>
     http<{ sources: KnowledgeSource[] }>(`/knowledge/notebooks/${notebookId}/sources`),
 
+  knowledgeChat: (body: {
+    notebook_id: string;
+    question: string;
+    source_ids?: string[];
+  }) =>
+    http<{ answer: string; provider: string; cited_source_ids: string[] }>(
+      "/knowledge/chat",
+      { method: "POST", body: JSON.stringify(body) }
+    ),
+
   addKnowledgeSource: (body: {
     notebook_id: string;
     source_type: string;

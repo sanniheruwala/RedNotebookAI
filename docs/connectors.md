@@ -32,7 +32,7 @@ Python client. Supported inputs:
 - `source`, `timezone`
 - `query_timeout_seconds`, `max_preview_rows`, `max_result_rows`
 
-Query cancellation is a stub — the official client does not expose a portable
+Query cancellation is a stub, the official client does not expose a portable
 cancel API. The HTTP layer surfaces this clearly.
 
 ## Adding a new connector

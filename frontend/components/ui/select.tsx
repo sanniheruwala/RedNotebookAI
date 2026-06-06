@@ -3,7 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-// Lightweight native select wrapper — sufficient for MVP forms.
+// Lightweight native select wrapper, sufficient for MVP forms.
 const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
   ({ className, children, ...props }, ref) => (
     <select

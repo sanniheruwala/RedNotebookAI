@@ -20,7 +20,7 @@ def export_html(result: QueryResult, config: ChartConfig, path: str | Path) -> P
 
 
 def export_png(result: QueryResult, config: ChartConfig, path: str | Path) -> Path:
-    """Render the chart to PNG (requires kaleido — optional)."""
+    """Render the chart to PNG (requires kaleido, optional)."""
     from rednotebook.visualization.charts import build_plotly_figure
 
     target = Path(path)

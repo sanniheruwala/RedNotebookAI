@@ -5,9 +5,9 @@
 `rednotebook.security.sql_guard.check_sql` evaluates every SQL statement and
 returns one of:
 
-- `ALLOWED` — read-only SELECT/WITH/SHOW/DESCRIBE/EXPLAIN
-- `WARN` — write statement, but writes are enabled (`ALLOW_WRITE_QUERIES=true`)
-- `BLOCKED` — destructive, write, or otherwise disallowed
+- `ALLOWED`, read-only SELECT/WITH/SHOW/DESCRIBE/EXPLAIN
+- `WARN`, write statement, but writes are enabled (`ALLOW_WRITE_QUERIES=true`)
+- `BLOCKED`, destructive, write, or otherwise disallowed
 
 Two layers cooperate:
 
@@ -31,10 +31,10 @@ to actually execute the SQL.
 
 `rednotebook.profiling.pii_detector` classifies columns into:
 
-- `PII` — email, phone, name, address, card number, IBAN, ...
-- `Restricted` — password, token, secret, api_key, session_id, OTP, ...
-- `NotSensitive` — pure numeric / temporal columns with no name signal
-- `Unknown` — everything else
+- `PII`, email, phone, name, address, card number, IBAN, ...
+- `Restricted`, password, token, secret, api_key, session_id, OTP, ...
+- `NotSensitive`, pure numeric / temporal columns with no name signal
+- `Unknown`, everything else
 
 Detection uses column-name keywords + value-pattern heuristics (emails, card
 numbers, IBANs, JWT/bearer tokens, phone numbers). Restricted/PII columns are
@@ -43,5 +43,5 @@ masked before AI sample sharing.
 ## External provider risks
 
 - AI providers receive only what the privacy-mode allows. No credentials.
-- The NotebookLM Enterprise provider is a stub — no scraping, no unofficial
+- The NotebookLM Enterprise provider is a stub, no scraping, no unofficial
   endpoints, disabled unless explicit Google Cloud config is set.

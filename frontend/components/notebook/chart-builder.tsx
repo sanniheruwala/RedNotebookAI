@@ -135,7 +135,7 @@ function ColumnSelect({
 }) {
   return (
     <Select value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">—</option>
+      <option value="">none</option>
       {columns.map((c) => (
         <option key={c} value={c}>
           {c}

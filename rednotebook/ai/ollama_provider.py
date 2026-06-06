@@ -1,4 +1,4 @@
-"""Ollama (local model) AI provider — uses urllib so it has zero new deps."""
+"""Ollama (local model) AI provider, uses urllib so it has zero new deps."""
 
 from __future__ import annotations
 

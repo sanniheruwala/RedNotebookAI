@@ -1,4 +1,4 @@
-"""AI provider registry — pick the right provider from settings."""
+"""AI provider registry, pick the right provider from settings."""
 
 from __future__ import annotations
 

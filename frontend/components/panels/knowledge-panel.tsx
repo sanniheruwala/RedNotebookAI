@@ -10,12 +10,19 @@ import { Select } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
-import type { KnowledgeNotebook, KnowledgeSource } from "@/lib/types";
+import type { InfographicBrief, KnowledgeNotebook, KnowledgeSource } from "@/lib/types";
+import { InfographicModal } from "@/components/panels/infographic-modal";
+import { KnowledgeChat } from "@/components/panels/knowledge-chat";
 
 export function KnowledgePanel() {
   const qc = useQueryClient();
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [newName, setNewName] = React.useState("");
+  const [infographic, setInfographic] = React.useState<{
+    brief: InfographicBrief;
+    html: string;
+    template: string;
+  } | null>(null);
 
   const notebooks = useQuery({
     queryKey: ["knowledge-notebooks"],
@@ -57,9 +64,11 @@ export function KnowledgePanel() {
         persist: !!activeId,
       }),
     onSuccess: (res) => {
-      const blob = new Blob([res.html], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener,noreferrer");
+      setInfographic({
+        brief: res.brief,
+        html: res.html,
+        template: "executive_kpi_brief",
+      });
       toast.success("Infographic generated");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -84,7 +93,7 @@ export function KnowledgePanel() {
           value={activeId ?? ""}
           onChange={(e) => setActiveId(e.target.value || null)}
         >
-          <option value="">— select notebook —</option>
+          <option value="">Select a notebook</option>
           {notebooks.data?.notebooks.map((n) => (
             <option key={n.id} value={n.id}>
               {n.name}
@@ -103,8 +112,16 @@ export function KnowledgePanel() {
         </div>
       </div>
 
-      <ScrollArea className="scrollbar-thin flex-1 px-3">
+      <ScrollArea className="scrollbar-thin max-h-[40%] flex-shrink-0 px-3">
         <div className="space-y-2 py-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Sources
+            </div>
+            <span className="text-[10px] tabular-nums text-muted-foreground/70">
+              {sources.data?.sources.length ?? 0}
+            </span>
+          </div>
           {!activeId && (
             <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
               Select or create a notebook to collect sources.
@@ -121,12 +138,34 @@ export function KnowledgePanel() {
         </div>
       </ScrollArea>
 
+      <KnowledgeChat
+        notebookId={activeId}
+        sourceIds={sources.data?.sources.map((s) => s.id)}
+      />
+
       <div className="border-t p-3">
-        <Button className="w-full" size="sm" onClick={() => generateInfographic.mutate()} disabled={generateInfographic.isPending}>
-          {generateInfographic.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+        <Button
+          className="w-full gap-1.5 shadow-sm shadow-primary/20"
+          size="sm"
+          onClick={() => generateInfographic.mutate()}
+          disabled={generateInfographic.isPending}
+        >
+          {generateInfographic.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ImageIcon className="h-4 w-4" />
+          )}
           Generate infographic
         </Button>
       </div>
+
+      <InfographicModal
+        open={!!infographic}
+        onOpenChange={(open) => !open && setInfographic(null)}
+        brief={infographic?.brief ?? null}
+        template={infographic?.template ?? "executive_kpi_brief"}
+        rawHtml={infographic?.html}
+      />
     </div>
   );
 }

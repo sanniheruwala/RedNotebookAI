@@ -1,6 +1,6 @@
 # Contributing
 
-PRs are welcome — RedNotebook AI is an open-source project.
+PRs are welcome. RedNotebook AI is an open-source project.
 
 ## Setup
 

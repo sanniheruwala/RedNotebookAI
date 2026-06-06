@@ -1,17 +1,29 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ResultTable } from "@/components/notebook/result-table";
 import { ChartView } from "@/components/notebook/chart-view";
 import { ChartBuilder } from "@/components/notebook/chart-builder";
 import { ProfileView } from "@/components/notebook/profile-view";
+
+const ResultTable = dynamic(
+  () => import("@/components/notebook/result-table").then((m) => m.ResultTable),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-48 items-center justify-center rounded-xl border bg-muted/20 text-xs text-muted-foreground">
+        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Loading table…
+      </div>
+    ),
+  }
+);
 import type { ChartConfig, QueryResultPayload, SQLCell } from "@/lib/types";
 import { useNotebookStore } from "@/store/notebook-store";
 import { api } from "@/lib/api";

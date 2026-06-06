@@ -23,9 +23,9 @@ curl -X POST http://localhost:8000/api/infographics/generate \
 
 The response contains:
 
-- `brief` — structured infographic brief (title, summary, metrics, insights)
-- `html` — standalone HTML document ready to render or attach
-- `export_path` — set when `persist` is true and a knowledge notebook id is provided
+- `brief`, structured infographic brief (title, summary, metrics, insights)
+- `html`, standalone HTML document ready to render or attach
+- `export_path`, set when `persist` is true and a knowledge notebook id is provided
 
 You can pipe `html` straight into a file:
 

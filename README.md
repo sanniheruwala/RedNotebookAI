@@ -1,6 +1,6 @@
 # RedNotebook AI
 
-> Open-source AI data notebook for Trino and modern data platforms — query, visualize, profile, and explore data with beautiful charts, AI suggestions, and NotebookLM-style knowledge reports.
+> Open-source AI data notebook for Trino and modern data platforms, query, visualize, profile, and explore data with beautiful charts, AI suggestions, and NotebookLM-style knowledge reports.
 
 RedNotebook AI is a premium, notebook-first analytics application that lets you
 connect to Trino over HTTPS, browse metadata, write SQL, run queries, visualize
@@ -11,7 +11,17 @@ It is designed to feel like a modern blend of **Hex**, **Deepnote**,
 **Databricks Notebook**, **Jupyter**, **Observable**, and **NotebookLM**, but
 stays lightweight, open-source, and developer-friendly.
 
-![RedNotebook AI — notebook canvas with SQL cell, metadata sidebar, and AI assistant panel](docs/images/screenshot-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/screenshot-light.png">
+  <img alt="RedNotebook AI: notebook canvas with SQL cell, metadata sidebar, and AI assistant panel" src="docs/images/screenshot-dark.png">
+</picture>
+
+<details>
+<summary><sub>Light theme preview</sub></summary>
+
+![Light theme](docs/images/screenshot-light.png)
+
+</details>
 
 ---
 
@@ -23,7 +33,7 @@ RedNotebook AI is **local-first**. Today:
 |------|------------|
 | 🟢 **Your laptop** (`localhost`) | ✅ Primary use case |
 | 🟡 **Single team behind VPN / private network** | ✅ With the [deployment hardening checklist](docs/deployment.md#tier-2--single-team-behind-a-vpn--private-network) |
-| 🔴 **Public internet, multi-user SaaS** | ❌ Not yet — no auth, no per-user namespacing, no rate limiting. See [Phase 4 roadmap](docs/roadmap.md). |
+| 🔴 **Public internet, multi-user SaaS** | ❌ Not yet, no auth, no per-user namespacing, no rate limiting. See [Phase 4 roadmap](docs/roadmap.md). |
 
 See [`docs/deployment.md`](docs/deployment.md) for the full security model
 and the Tier 2 hardening checklist before sharing an instance with a team.
@@ -43,7 +53,7 @@ and the Tier 2 hardening checklist before sharing an instance with a team.
 - **Ultra-HD visualizations** via Apache ECharts + Plotly (export to HTML)
 - **Data profiling** with PII / restricted column detection
 - **Knowledge Notebook** (internal mode) for sources, infographics, and reports
-- **SQL safety guard** — read-only by default, write queries blocked unless
+- **SQL safety guard**, read-only by default, write queries blocked unless
   `ALLOW_WRITE_QUERIES=true`
 - **Notebook persistence** as local JSON files
 - **FastAPI HTTP layer** + Typer CLI + Docker setup
@@ -57,7 +67,7 @@ and the Tier 2 hardening checklist before sharing an instance with a team.
 | Layer | Tech |
 |-------|------|
 | Backend | Python 3.11+, FastAPI, Pydantic, Trino client, Pandas, Plotly |
-| AI providers | Mock (default), OpenAI, Anthropic, Ollama — pluggable |
+| AI providers | Mock (default), OpenAI, Anthropic, Ollama, pluggable |
 | Frontend | Next.js 14, TypeScript, Tailwind, shadcn/ui |
 | State | TanStack Query (server) + Zustand (local) |
 | Tables | TanStack Table |
@@ -66,7 +76,7 @@ and the Tier 2 hardening checklist before sharing an instance with a team.
 | Storage | Local JSON for notebooks/knowledge, optional Parquet cache |
 
 ```
-QueryCanvasAI/
+RedNotebookAI/
 ├── rednotebook/         # Python backend (FastAPI + core libs)
 │   ├── server/          # FastAPI app + routers
 │   ├── connectors/      # Trino + base plug-in interface
@@ -175,7 +185,7 @@ The Knowledge Notebook is RedNotebook AI's NotebookLM-style layer. It stores:
 - Markdown notes and business definitions
 
 It works **fully locally**. The optional `NotebookLM Enterprise` provider is
-shipped as an experimental stub — it is disabled unless explicit Google Cloud
+shipped as an experimental stub, it is disabled unless explicit Google Cloud
 config is provided. No browser scraping, no unofficial endpoints.
 
 See [docs/notebooklm_integration.md](docs/notebooklm_integration.md).
@@ -184,7 +194,7 @@ See [docs/notebooklm_integration.md](docs/notebooklm_integration.md).
 
 ## Security model
 
-- **Read-only by default** — destructive SQL is blocked
+- **Read-only by default**, destructive SQL is blocked
 - **SQL guard** uses sqlglot when available, plus a robust keyword scanner
 - **Secret masking** for AI prompts and knowledge sources
 - **PII detection** flags emails, phone numbers, card numbers, tokens, etc.
@@ -233,4 +243,4 @@ preferred workflow and code style.
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE).
+Apache-2.0, see [LICENSE](LICENSE).
