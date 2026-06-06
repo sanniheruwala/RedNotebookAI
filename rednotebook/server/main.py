@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from rednotebook import __version__
 from rednotebook.config.settings import get_settings
@@ -126,4 +132,52 @@ def create_app() -> FastAPI:
     return app
 
 
+def _resolve_static_frontend_dir() -> Path | None:
+    """Look up the bundled Next.js export directory, if any.
+
+    Order:
+      1. ``$REDNOTEBOOK_STATIC_DIR`` env override.
+      2. ``rednotebook/static_frontend`` packaged with the wheel/binary.
+      3. ``frontend/out`` next to the repo root (developer convenience).
+      4. PyInstaller ``_MEIPASS``/static_frontend (one-file bundles).
+    """
+    env = os.environ.get("REDNOTEBOOK_STATIC_DIR")
+    candidates = []
+    if env:
+        candidates.append(Path(env))
+    here = Path(__file__).resolve().parent
+    candidates.append(here.parent / "static_frontend")
+    candidates.append(here.parent.parent / "frontend" / "out")
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(Path(meipass) / "static_frontend")
+    for c in candidates:
+        if c.is_dir() and (c / "index.html").exists():
+            return c
+    return None
+
+
+def _mount_static_frontend(app: FastAPI) -> None:
+    """Mount the built Next.js export so the API and UI share one origin."""
+    directory = _resolve_static_frontend_dir()
+    if directory is None:
+        return
+
+    # SPA-style fallback: any non-API path that doesn't match a static file
+    # serves index.html so the Next.js client router takes over.
+    index_file = directory / "index.html"
+
+    @app.get("/", include_in_schema=False)
+    async def _index():  # pragma: no cover - trivial
+        return FileResponse(index_file)
+
+    # Mount the static asset tree last so /api/* routes still take priority.
+    app.mount(
+        "/",
+        StaticFiles(directory=directory, html=True),
+        name="frontend",
+    )
+
+
 app = create_app()
+_mount_static_frontend(app)

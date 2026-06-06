@@ -1,0 +1,201 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write    # to publish a Release
+  packages: write    # to push to GHCR
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/rednotebook-ai
+
+jobs:
+  # ----------------------------------------------------------------------
+  # Docker image to GHCR (multi-arch)
+  # ----------------------------------------------------------------------
+  docker:
+    name: Docker image (ghcr.io)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ----------------------------------------------------------------------
+  # Python sdist + wheel (uploaded to the Release; PyPI is opt-in)
+  # ----------------------------------------------------------------------
+  python-dists:
+    name: Python sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dists
+          path: dist/*
+
+  # ----------------------------------------------------------------------
+  # Desktop binaries: macOS, Windows, Linux (PyInstaller one-folder build)
+  # ----------------------------------------------------------------------
+  desktop:
+    name: Desktop binary (${{ matrix.os }})
+    needs: [python-dists]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: rednotebook-macos.dmg
+            label: macOS
+          - os: windows-latest
+            artifact: rednotebook-windows.zip
+            label: Windows
+          - os: ubuntu-latest
+            artifact: rednotebook-linux.tar.gz
+            label: Linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pyinstaller==6.10.*
+
+      - name: Build frontend (static export)
+        working-directory: frontend
+        env:
+          NEXT_OUTPUT: export
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: PyInstaller
+        run: pyinstaller packaging/rednotebook.spec --noconfirm
+
+      # ----- Package the binary into a platform-appropriate archive ------
+      - name: Package (macOS DMG)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install create-dmg
+          mkdir -p out
+          create-dmg \
+            --volname "RedNotebook AI" \
+            --window-pos 200 120 \
+            --window-size 600 380 \
+            --icon-size 100 \
+            --icon "RedNotebook AI.app" 175 190 \
+            --app-drop-link 425 190 \
+            --no-internet-enable \
+            out/rednotebook-macos.dmg \
+            "dist/RedNotebook AI.app" || \
+          # Fallback if create-dmg flakes (it sometimes does on CI): hdiutil
+          hdiutil create -volname "RedNotebook AI" -srcfolder "dist/RedNotebook AI.app" \
+            -ov -format UDZO out/rednotebook-macos.dmg
+
+      - name: Package (Windows zip)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out
+          Compress-Archive -Path "dist/RedNotebook AI" -DestinationPath "out/rednotebook-windows.zip"
+
+      - name: Package (Linux tar.gz)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p out
+          tar -C dist -czf out/rednotebook-linux.tar.gz "RedNotebook AI"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: out/${{ matrix.artifact }}
+
+  # ----------------------------------------------------------------------
+  # Publish a GitHub Release with every artifact attached
+  # ----------------------------------------------------------------------
+  release:
+    name: GitHub Release
+    needs: [docker, python-dists, desktop]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Inventory
+        run: ls -R artifacts
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/python-dists/*
+            artifacts/rednotebook-macos.dmg/rednotebook-macos.dmg
+            artifacts/rednotebook-windows.zip/rednotebook-windows.zip
+            artifacts/rednotebook-linux.tar.gz/rednotebook-linux.tar.gz
+          body: |
+            ## Install
+
+            **Docker (any OS):**
+            ```bash
+            docker run -p 8000:8000 ghcr.io/${{ github.repository_owner }}/rednotebook-ai:${{ github.ref_name }}
+            ```
+
+            **Python (any OS):** `pip install rednotebook-ai==${{ github.ref_name }}` (from the attached wheel).
+
+            **Desktop apps:** download the platform-specific artifact below.
+            - **macOS:** `rednotebook-macos.dmg`
+            - **Windows:** `rednotebook-windows.zip` (extract and run `RedNotebook AI.exe`)
+            - **Linux:** `rednotebook-linux.tar.gz` (extract and run `RedNotebook AI`)

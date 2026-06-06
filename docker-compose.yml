@@ -1,15 +1,28 @@
-version: "3.9"
+name: rednotebook
 
 services:
   rednotebook:
-    build: .
+    image: ghcr.io/sanniheruwala/rednotebook-ai:latest
+    # Comment the line above and uncomment "build: ." to build locally instead.
+    # build: .
     container_name: rednotebook-ai
+    restart: unless-stopped
     ports:
       - "8000:8000"
     env_file:
       - .env
     volumes:
-      - ./local_data:/app/local_data
-      - ./artifacts:/app/artifacts
-      - ./exports:/app/exports
-    restart: unless-stopped
+      - rednotebook_data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  rednotebook_data:

@@ -1,15 +1,21 @@
+<div align="center">
+
+<img src="frontend/public/logo.png" alt="RedAnalytica" width="72" />
+
 # RedNotebook AI
 
-> Open-source AI data notebook for Trino and modern data platforms, query, visualize, profile, and explore data with beautiful charts, AI suggestions, and NotebookLM-style knowledge reports.
+**The open-source AI data notebook for Trino.**
+By [RedAnalytica](https://redanalytica.in).
 
-RedNotebook AI is a premium, notebook-first analytics application that lets you
-connect to Trino over HTTPS, browse metadata, write SQL, run queries, visualize
-data, profile datasets, get AI-assisted SQL and insights, and turn query
-outputs into a NotebookLM-style knowledge layer with infographic reports.
+[![CI](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/ci.yml/badge.svg)](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/ci.yml)
+[![Release](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/release.yml/badge.svg)](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/release.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-22c55e.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-22c55e.svg)](https://www.python.org/)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-22c55e.svg)](https://nextjs.org/)
 
-It is designed to feel like a modern blend of **Hex**, **Deepnote**,
-**Databricks Notebook**, **Jupyter**, **Observable**, and **NotebookLM**, but
-stays lightweight, open-source, and developer-friendly.
+Query, visualize, profile, and explore data with beautiful charts, AI suggestions, and a NotebookLM-style knowledge layer.
+
+</div>
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/images/screenshot-light.png">
@@ -25,114 +31,99 @@ stays lightweight, open-source, and developer-friendly.
 
 ---
 
-## Where can I run this?
+## Why RedNotebook AI?
 
-RedNotebook AI is **local-first**. Today:
+Modern data teams jump between five tools to answer one question. RedNotebook AI puts all of it in one notebook:
 
-| Tier | Supported? |
-|------|------------|
-| 🟢 **Your laptop** (`localhost`) | ✅ Primary use case |
-| 🟡 **Single team behind VPN / private network** | ✅ With the [deployment hardening checklist](docs/deployment.md#tier-2--single-team-behind-a-vpn--private-network) |
-| 🔴 **Public internet, multi-user SaaS** | ❌ Not yet, no auth, no per-user namespacing, no rate limiting. See [Phase 4 roadmap](docs/roadmap.md). |
-
-See [`docs/deployment.md`](docs/deployment.md) for the full security model
-and the Tier 2 hardening checklist before sharing an instance with a team.
+- **A real SQL workspace** with Monaco, AG Grid, drag-to-reorder cells, and keyboard shortcuts.
+- **Premium charts** powered by Apache ECharts with brand-aware theming.
+- **AI you can trust**, pluggable across OpenAI, Anthropic, Ollama, or a deterministic offline mock. Privacy-safe by default, schema-only context, PII masking, secrets stripped.
+- **NotebookLM-style knowledge layer.** Pull SQL, schemas, results, and charts into a notebook of sources. Ask grounded questions. Generate infographics.
+- **Read-only by default.** A SQL guard backed by `sqlglot` blocks destructive statements unless you explicitly enable writes.
+- **Local-first.** Runs on your laptop with no login. Flip a single env var (`AUTH_ENABLED=true`) to enable multi-user mode with local email+password, GitHub OAuth, API tokens, per-user namespacing, and admin invites.
 
 ---
 
-## Features (Phase 1 MVP)
+## Install
 
-- **Trino HTTPS connector** with test, browse, and run support
-- **Notebook-first UI** built with Next.js, Tailwind, shadcn/ui, and Monaco editor
-- **AI assistant** (mock by default; optional OpenAI, Anthropic, Ollama)
-  - natural-language → SQL
-  - SQL explanation + optimization
-  - result summary
-  - chart suggestion
-  - infographic brief
-- **Ultra-HD visualizations** via Apache ECharts + Plotly (export to HTML)
-- **Data profiling** with PII / restricted column detection
-- **Knowledge Notebook** (internal mode) for sources, infographics, and reports
-- **SQL safety guard**, read-only by default, write queries blocked unless
-  `ALLOW_WRITE_QUERIES=true`
-- **Notebook persistence** as local JSON files
-- **FastAPI HTTP layer** + Typer CLI + Docker setup
-
-> ⚠️ **Read-only by default.** Write queries are blocked unless explicitly enabled.
-
----
-
-## Architecture
-
-| Layer | Tech |
-|-------|------|
-| Backend | Python 3.11+, FastAPI, Pydantic, Trino client, Pandas, Plotly |
-| AI providers | Mock (default), OpenAI, Anthropic, Ollama, pluggable |
-| Frontend | Next.js 14, TypeScript, Tailwind, shadcn/ui |
-| State | TanStack Query (server) + Zustand (local) |
-| Tables | TanStack Table |
-| Charts | Apache ECharts (via `echarts-for-react`) + Plotly fallback |
-| Editor | Monaco Editor |
-| Storage | Local JSON for notebooks/knowledge, optional Parquet cache |
-
-```
-RedNotebookAI/
-├── rednotebook/         # Python backend (FastAPI + core libs)
-│   ├── server/          # FastAPI app + routers
-│   ├── connectors/      # Trino + base plug-in interface
-│   ├── ai/              # Provider abstraction + mock/openai/anthropic/ollama
-│   ├── notebook/        # Notebook models, storage, runner
-│   ├── knowledge/       # NotebookLM-style internal knowledge layer
-│   ├── visualization/   # Recommender, chart spec, infographic
-│   ├── profiling/       # Stats + PII detector
-│   ├── security/        # SQL guard, secret masking
-│   ├── cache/           # Optional Parquet cache
-│   └── cli/             # Typer CLI
-├── frontend/            # Next.js + Tailwind + shadcn/ui
-├── tests/               # pytest tests
-└── docs/                # docs/architecture/ai/security/...
-```
-
----
-
-## Quick start
-
-### 1. Python backend
+### Docker (any OS)
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"        # or pip install .
-cp .env.example .env           # then edit
-rednotebook validate-config
-rednotebook run                # starts FastAPI on :8000
+docker run -d --name rednotebook \
+  -p 8000:8000 \
+  -v rednotebook-data:/data \
+  ghcr.io/sanniheruwala/rednotebook-ai:latest
 ```
 
-### 2. Next.js frontend
+Then open [http://localhost:8000](http://localhost:8000).
+
+Or with Compose:
+
+```bash
+cp .env.example .env  # edit as needed
+docker compose up -d
+```
+
+### Desktop app
+
+Grab a one-click installer from the latest [GitHub Release](https://github.com/sanniheruwala/RedNotebookAI/releases):
+
+| Platform | Artifact | Notes |
+|----------|----------|-------|
+| **macOS** | `rednotebook-macos.dmg` | Drag to Applications, open, allow in System Settings the first time. |
+| **Windows** | `rednotebook-windows.zip` | Extract and run `RedNotebook AI.exe`. |
+| **Linux** | `rednotebook-linux.tar.gz` | Extract and run `./RedNotebook AI/RedNotebook AI`. |
+
+The app boots a local FastAPI server, opens your default browser, and stores notebooks in your platform-standard application-support directory.
+
+### Python
+
+```bash
+pip install rednotebook-ai          # from PyPI (when a release is tagged)
+rednotebook run                      # starts the FastAPI server on :8000
+```
+
+Then in a second terminal:
 
 ```bash
 cd frontend
 npm install
-npm run dev                    # starts Next.js on :3000
+npm run dev                          # starts the dev UI on :3000
 ```
 
-Open http://localhost:3000.
-
-### 3. Docker
+### From source
 
 ```bash
-docker compose up --build
-```
+git clone https://github.com/sanniheruwala/RedNotebookAI.git
+cd RedNotebookAI
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env
+rednotebook run
 
-This builds the Python backend image and exposes it on `:8000`. Run the
-frontend locally (or build a separate image as needed).
+# in another terminal
+cd frontend && npm install && npm run dev
+```
 
 ---
 
-## Configuring Trino
+## Where can I run this safely?
 
-Configure the connection inside the UI (top-bar → "Configure Trino") or set
-defaults in `.env`:
+RedNotebook AI is local-first. Today:
+
+| Tier | Supported? |
+|------|------------|
+| 🟢 **Your laptop** (`localhost`) | ✅ Primary use case |
+| 🟡 **Single team behind VPN / private network** | ✅ With the [hardening checklist](docs/deployment.md#tier-2--single-team-behind-a-vpn--private-network) |
+| 🔴 **Public internet, multi-user SaaS** | ⚠️ Auth landed; rate-limiting + audit log are on the [Phase 4 roadmap](docs/roadmap.md). |
+
+See [`docs/deployment.md`](docs/deployment.md) for the full security model.
+
+---
+
+## Configure Trino
+
+In the UI, click **Configure Trino** in the top bar. Or set defaults in `.env`:
 
 ```env
 TRINO_HOST=trino.example.com
@@ -145,102 +136,119 @@ TRINO_SCHEMA=default
 TRINO_VERIFY_SSL=true
 ```
 
-The UI panel supports custom HTTP headers, session properties, query timeout,
-and result limits.
+Custom HTTP headers, session properties, query timeouts, and result limits are all supported.
 
 ---
 
-## AI setup
+## Configure AI
+
+| Provider | Setup |
+|----------|-------|
+| **Mock** (default) | Offline, deterministic. No setup. |
+| **OpenAI** | `AI_PROVIDER=openai`, `OPENAI_API_KEY=sk-…` |
+| **Anthropic** | `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=sk-ant-…` |
+| **Ollama** (local) | `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://localhost:11434` |
+
+Privacy defaults:
+
+- Sample rows are **not** sent to AI unless `AI_ALLOW_SAMPLE_ROWS=true`.
+- PII columns are masked when samples are shared.
+- Secrets are stripped from SQL before any provider call.
+- Credentials are never forwarded to AI.
+
+See [`docs/ai.md`](docs/ai.md) for details.
+
+---
+
+## Enable multi-user (optional)
 
 ```env
-# default: offline mock provider
-AI_PROVIDER=mock
-
-# OpenAI
-AI_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-# Anthropic
-AI_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-# Ollama (local)
-AI_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
+AUTH_ENABLED=true
+SECRET_KEY=$(openssl rand -hex 32)
+COOKIE_SECURE=true              # set true when behind HTTPS
+ALLOW_SELF_SIGNUP=false         # admin-invite only by default
 ```
 
-**Privacy defaults:**
-
-- Sample rows are not sent to AI unless `AI_ALLOW_SAMPLE_ROWS=true`
-- PII columns are masked when sample rows are allowed
-- Secrets are stripped from SQL before AI processing
-- Credentials are **never** sent to AI
+The first registration becomes the workspace admin. Subsequent users need an invite (`POST /api/auth/invite`). GitHub OAuth and API tokens (PAT-style) are supported out of the box. See [`docs/deployment.md`](docs/deployment.md).
 
 ---
 
-## Knowledge Notebook
+## Architecture
 
-The Knowledge Notebook is RedNotebook AI's NotebookLM-style layer. It stores:
+| Layer | Tech |
+|-------|------|
+| Backend | Python 3.11+, FastAPI, Pydantic, Trino client, Pandas, ECharts/Plotly |
+| Frontend | Next.js 14, TypeScript, Tailwind, shadcn/ui, Monaco, AG Grid, ECharts, framer-motion, @dnd-kit |
+| State | TanStack Query (server) + Zustand (local) |
+| Auth | Local email+password (bcrypt) + JWT cookies, GitHub OAuth, API tokens |
+| AI | Provider-pluggable (mock, OpenAI, Anthropic, Ollama) |
+| Storage | Local JSON for notebooks/knowledge/users; optional Parquet result cache |
 
-- SQL queries, schemas, profiles, charts, summaries
-- Generated infographics (HTML)
-- Markdown notes and business definitions
+```
+rednotebook/        Python backend (FastAPI + core libs)
+├── auth/           User store, JWT sessions, password hashing, OAuth, API tokens
+├── server/         FastAPI app + routers
+├── connectors/     Trino + base plugin interface
+├── ai/             Provider abstraction (mock, openai, anthropic, ollama)
+├── notebook/       Notebook models, JSON storage, guard-aware runner
+├── knowledge/      NotebookLM-style internal knowledge layer
+├── visualization/  Recommender, chart spec, HTML infographic generator
+├── profiling/      Stats + PII detector
+├── security/       SQL guard, secret masking
+├── migrations/     One-shot data migrations
+└── cli/            Typer CLI
 
-It works **fully locally**. The optional `NotebookLM Enterprise` provider is
-shipped as an experimental stub, it is disabled unless explicit Google Cloud
-config is provided. No browser scraping, no unofficial endpoints.
+frontend/           Next.js + Tailwind + shadcn/ui
+docs/               Architecture, AI, security, deployment, connectors, roadmap
+tests/              pytest test suite
+```
 
-See [docs/notebooklm_integration.md](docs/notebooklm_integration.md).
-
----
-
-## Security model
-
-- **Read-only by default**, destructive SQL is blocked
-- **SQL guard** uses sqlglot when available, plus a robust keyword scanner
-- **Secret masking** for AI prompts and knowledge sources
-- **PII detection** flags emails, phone numbers, card numbers, tokens, etc.
-
-See [docs/security.md](docs/security.md).
-
----
-
-## Connector roadmap
-
-| Status | Connector |
-|--------|-----------|
-| ✅ | Trino HTTPS |
-| Planned | PostgreSQL, MySQL, BigQuery, Snowflake, Redshift, Athena |
-| Planned | Databricks SQL, DuckDB, ClickHouse |
-| Planned | CSV / Excel / Google Sheets upload |
-
-All connectors implement a single `BaseConnector` interface. See
-[docs/connectors.md](docs/connectors.md).
+Full [architecture write-up](docs/architecture.md).
 
 ---
 
-## Tests & lint
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Deployment tiers](docs/deployment.md)
+- [Connectors](docs/connectors.md)
+- [AI providers and privacy](docs/ai.md)
+- [Security model](docs/security.md)
+- [Visualization](docs/visualization.md)
+- [Knowledge layer + NotebookLM integration](docs/notebooklm_integration.md)
+- [Roadmap](docs/roadmap.md)
+- [Contributing](docs/contributing.md)
+
+---
+
+## Development
 
 ```bash
-pytest
+# Backend
+pytest                              # 44+ tests
 ruff check .
-```
 
-The frontend has separate scripts:
-
-```bash
+# Frontend
 cd frontend
-npm run lint
 npm run typecheck
+npm run lint
+npm run build
 ```
+
+Continuous integration runs the full suite on every push and PR. See [`.github/workflows`](.github/workflows).
 
 ---
 
 ## Contributing
 
-PRs welcome. Please read [docs/contributing.md](docs/contributing.md) for the
-preferred workflow and code style.
+Issues, PRs, and design feedback all welcome. See [`docs/contributing.md`](docs/contributing.md) and the [PR template](.github/pull_request_template.md). For vulnerabilities, please use [private disclosure](SECURITY.md), not a public issue.
 
 ---
 
 ## License
 
-Apache-2.0, see [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE).
+
+<div align="center">
+  <sub>Built with care by <a href="https://redanalytica.in">RedAnalytica</a>.</sub>
+</div>
