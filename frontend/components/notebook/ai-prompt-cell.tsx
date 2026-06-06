@@ -146,7 +146,7 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey || e.shiftKey)) {
               e.preventDefault();
               send();
             }
@@ -161,7 +161,7 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
         />
         <div className="mt-3 flex items-center justify-between">
           <span className="hidden items-center gap-1 text-[10px] text-muted-foreground md:flex">
-            <Kbd>⌘</Kbd>
+            <Kbd>⇧</Kbd>
             <Kbd>↵</Kbd>
             <span className="ml-1">to send</span>
           </span>

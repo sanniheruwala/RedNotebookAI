@@ -32,6 +32,8 @@ import { isConfigured } from "@/lib/connection";
 import { formatDuration, formatNumber } from "@/lib/utils";
 import type { SQLCell as SQLCellType } from "@/lib/types";
 
+import type { OnMount } from "@monaco-editor/react";
+
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 export function SQLCell({ cell }: { cell: SQLCellType }) {
@@ -79,6 +81,18 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
 
   const onChange = (next: string | undefined) =>
     updateCell(cell.id, (c) => (c.cell_type === "sql" ? { ...c, sql: next ?? "" } : c));
+
+  // Keep a ref to the latest run trigger so Monaco's one-time onMount
+  // keybinding always invokes the current closure (state, connection, etc.).
+  const runRef = React.useRef<() => void>(() => {});
+  React.useEffect(() => {
+    runRef.current = () => run.mutate();
+  }, [run]);
+
+  const handleEditorMount: OnMount = React.useCallback((editor, monaco) => {
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => runRef.current());
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current());
+  }, []);
 
   const hasError = !!cellResult?.error;
   const hasResult = !!cellResult?.result;
@@ -216,6 +230,7 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
                 theme={resolvedTheme === "dark" ? "vs-dark" : "vs"}
                 value={cell.sql}
                 onChange={onChange}
+                onMount={handleEditorMount}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 13,
@@ -254,8 +269,11 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
                     Run
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>
-                  Run cell <Kbd className="ml-1">⌘</Kbd>
+                <TooltipContent className="flex items-center gap-1">
+                  Run cell <Kbd className="ml-1">⇧</Kbd>
+                  <Kbd>↵</Kbd>
+                  <span className="text-muted-foreground/60">or</span>
+                  <Kbd>⌘</Kbd>
                   <Kbd>↵</Kbd>
                 </TooltipContent>
               </Tooltip>

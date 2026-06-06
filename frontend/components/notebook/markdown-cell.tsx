@@ -15,7 +15,7 @@ export function MarkdownCell({ cell }: { cell: MarkdownCellType }) {
   const removeCell = useNotebookStore((s) => s.removeCell);
 
   return (
-    <div className="card-premium group/cell relative p-4">
+    <div className="card-premium group/cell relative px-4 py-3">
       <div className="absolute -top-2.5 left-4 flex items-center gap-2">
         <Badge
           variant="outline"
@@ -24,27 +24,25 @@ export function MarkdownCell({ cell }: { cell: MarkdownCellType }) {
           Markdown
         </Badge>
       </div>
-      <div className="flex justify-end opacity-0 transition-opacity group-hover/cell:opacity-100">
-        <div className="flex gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7"
-            onClick={() => setEditing((e) => !e)}
-            aria-label={editing ? "Preview" : "Edit"}
-          >
-            {editing ? <Eye className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-            onClick={() => removeCell(cell.id)}
-            aria-label="Delete"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover/cell:opacity-100">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7"
+          onClick={() => setEditing((e) => !e)}
+          aria-label={editing ? "Preview" : "Edit"}
+        >
+          {editing ? <Eye className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+          onClick={() => removeCell(cell.id)}
+          aria-label="Delete"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
       </div>
       {editing ? (
         <Textarea
@@ -55,8 +53,8 @@ export function MarkdownCell({ cell }: { cell: MarkdownCellType }) {
             )
           }
           onKeyDown={(e) => {
-            // ⌘↵ / Ctrl↵ to preview
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            // Shift+Enter / ⌘↵ / Ctrl↵ to preview
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey || e.shiftKey)) {
               e.preventDefault();
               setEditing(false);
             }

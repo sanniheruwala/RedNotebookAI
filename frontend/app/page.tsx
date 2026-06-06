@@ -61,11 +61,11 @@ export default function HomePage() {
           <NotebookTabs />
           <div className="flex flex-1 overflow-hidden">
             <NotebookCanvas />
+            <KnowledgeDrawer />
           </div>
         </div>
       </div>
       <CommandPalette />
-      <KnowledgeDrawer />
     </div>
   );
 }

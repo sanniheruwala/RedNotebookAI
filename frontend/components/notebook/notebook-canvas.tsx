@@ -101,7 +101,7 @@ export function NotebookCanvas() {
   return (
     <main className="app-mesh relative flex h-full flex-1 flex-col">
       <ScrollArea className="scrollbar-thin flex-1">
-        <div className="mx-auto w-full max-w-4xl space-y-4 px-6 py-8">
+        <div className="mx-auto w-full space-y-4 px-6 py-6 xl:px-10">
           {cells.length === 0 && <EmptyState />}
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
