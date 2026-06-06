@@ -1,4 +1,6 @@
 import type {
+  APITokenCreated,
+  APITokenPublic,
   AuthStatus,
   AuthUser,
   ChartConfig,
@@ -10,6 +12,7 @@ import type {
   KnowledgeNotebook,
   KnowledgeSource,
   Notebook,
+  OAuthProviders,
   QueryResultPayload,
   RunQueryResponse,
   TrinoConnection,
@@ -75,6 +78,17 @@ export const api = {
       body: JSON.stringify(body),
     }),
   listInvites: () => http<InvitePublic[]>("/auth/invites"),
+  oauthProviders: () => http<OAuthProviders>("/auth/oauth/providers"),
+
+  // ----- API tokens (personal access) ----------------------------------
+  listApiTokens: () => http<APITokenPublic[]>("/me/tokens"),
+  createApiToken: (body: { name: string; expires_in_days?: number | null }) =>
+    http<APITokenCreated>("/me/tokens", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  revokeApiToken: (id: string) =>
+    http<{ ok: boolean }>(`/me/tokens/${id}`, { method: "DELETE" }),
 
   testConnection: (conn: TrinoConnection) =>
     http<{ ok: boolean; message: string; duration_seconds?: number }>("/connections/test", {

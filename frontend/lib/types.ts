@@ -24,6 +24,20 @@ export type InvitePublic = {
   accepted_at: string | null;
 };
 
+export type APITokenPublic = {
+  id: string;
+  name: string;
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+};
+
+export type APITokenCreated = APITokenPublic & { plaintext: string };
+
+export type OAuthProviders = { providers: string[] };
+
 export type TrinoConnection = {
   connection_name: string;
   host: string;

@@ -13,7 +13,7 @@ from pathlib import Path
 from threading import RLock
 from typing import Any
 
-from rednotebook.auth.models import InviteToken, User, UserRole
+from rednotebook.auth.models import APIToken, InviteToken, User, UserRole
 
 
 def _json_default(value: Any) -> Any:
@@ -30,6 +30,7 @@ class UserStore:
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._users_path = self.base_dir / "users.json"
         self._invites_path = self.base_dir / "invites.json"
+        self._tokens_path = self.base_dir / "api_tokens.json"
         self._lock = RLock()
 
     # ----- Disk helpers ------------------------------------------------------
@@ -145,3 +146,67 @@ class UserStore:
 
     def admin_emails(self) -> list[str]:
         return [u.email for u in self.list_users() if u.role is UserRole.ADMIN]
+
+    # ----- API tokens --------------------------------------------------------
+    def _read_tokens(self) -> list[dict[str, Any]]:
+        if not self._tokens_path.exists():
+            return []
+        return json.loads(self._tokens_path.read_text(encoding="utf-8"))
+
+    def _write_tokens(self, items: list[dict[str, Any]]) -> None:
+        self._tokens_path.write_text(
+            json.dumps(items, indent=2, default=_json_default),
+            encoding="utf-8",
+        )
+
+    def list_tokens(self, user_id: str | None = None) -> list[APIToken]:
+        tokens = [APIToken.model_validate(t) for t in self._read_tokens()]
+        if user_id is None:
+            return tokens
+        return [t for t in tokens if t.user_id == user_id]
+
+    def add_token(self, token: APIToken) -> APIToken:
+        with self._lock:
+            items = self._read_tokens()
+            items.append(token.model_dump(mode="json"))
+            self._write_tokens(items)
+        return token
+
+    def update_token(self, token: APIToken) -> APIToken:
+        with self._lock:
+            items = self._read_tokens()
+            for i, raw in enumerate(items):
+                if raw.get("id") == token.id:
+                    items[i] = token.model_dump(mode="json")
+                    self._write_tokens(items)
+                    return token
+            raise KeyError(f"Token not found: {token.id}")
+
+    def revoke_token(self, token_id: str, user_id: str) -> bool:
+        from datetime import UTC
+        from datetime import datetime as _dt
+
+        with self._lock:
+            items = self._read_tokens()
+            for i, raw in enumerate(items):
+                if raw.get("id") == token_id and raw.get("user_id") == user_id:
+                    items[i]["revoked_at"] = _dt.now(UTC).isoformat()
+                    self._write_tokens(items)
+                    return True
+        return False
+
+    def touch_token(self, token_id: str) -> None:
+        """Record last-used time. Best-effort, swallows errors."""
+        from datetime import UTC
+        from datetime import datetime as _dt
+
+        try:
+            with self._lock:
+                items = self._read_tokens()
+                for i, raw in enumerate(items):
+                    if raw.get("id") == token_id:
+                        items[i]["last_used_at"] = _dt.now(UTC).isoformat()
+                        self._write_tokens(items)
+                        return
+        except Exception:
+            return

@@ -58,6 +58,39 @@ class User(BaseModel):
         return self.role is UserRole.ADMIN
 
 
+class APIToken(BaseModel):
+    """A long-lived personal access token for the API.
+
+    The plaintext secret is shown exactly once at creation time and never
+    stored. Only `prefix` (the first 12 chars, for UI identification) and
+    `token_hash` (bcrypt of the full token) are persisted.
+    """
+
+    id: str = Field(default_factory=_uid)
+    user_id: str
+    name: str = Field(min_length=1, max_length=80)
+    prefix: str
+    token_hash: str
+    created_at: datetime = Field(default_factory=_utcnow)
+    last_used_at: datetime | None = None
+    expires_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+    model_config = ConfigDict(extra="ignore")
+
+    @property
+    def is_revoked(self) -> bool:
+        return self.revoked_at is not None
+
+    @property
+    def is_expired(self) -> bool:
+        return self.expires_at is not None and _utcnow() > self.expires_at
+
+    @property
+    def is_valid(self) -> bool:
+        return not self.is_revoked and not self.is_expired
+
+
 class InviteToken(BaseModel):
     """A one-time signup token issued by an admin."""
 

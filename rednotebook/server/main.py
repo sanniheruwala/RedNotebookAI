@@ -17,8 +17,10 @@ from rednotebook.server.routers import (
     health,
     infographics,
     knowledge,
+    me,
     metadata,
     notebooks,
+    oauth,
     query,
 )
 
@@ -69,6 +71,13 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+    app.include_router(oauth.router, prefix="/api/auth/oauth", tags=["oauth"])
+    app.include_router(
+        me.router,
+        prefix="/api/me",
+        tags=["me"],
+        dependencies=protected,
+    )
     app.include_router(
         connections.router,
         prefix="/api/connections",

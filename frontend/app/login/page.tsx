@@ -3,9 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Loader2, LogIn } from "lucide-react";
+import { Github, Loader2, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,12 @@ export default function LoginPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const status = useAuthStatus();
+  const providers = useQuery({
+    queryKey: ["oauth-providers"],
+    queryFn: api.oauthProviders,
+    enabled: status.data?.auth_enabled ?? false,
+    staleTime: 5 * 60_000,
+  });
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -113,6 +119,30 @@ export default function LoginPage() {
             Sign in
           </Button>
         </form>
+
+        {(providers.data?.providers ?? []).length > 0 && (
+          <>
+            <div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-widest text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <div className="space-y-2">
+              {(providers.data?.providers ?? []).includes("github") && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    window.location.href = "/api/auth/oauth/github/start";
+                  }}
+                >
+                  <Github className="h-4 w-4" /> Continue with GitHub
+                </Button>
+              )}
+            </div>
+          </>
+        )}
 
         {status.data?.allow_self_signup && (
           <div className="mt-5 text-center text-xs text-muted-foreground">

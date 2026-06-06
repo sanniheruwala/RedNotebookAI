@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     cookie_samesite: str = "lax"
     allow_self_signup: bool = False
 
+    # OAuth providers (optional)
+    github_oauth_client_id: str | None = None
+    github_oauth_client_secret: str | None = None
+    oauth_redirect_base_url: str | None = None  # e.g. https://app.example.com
+    oauth_default_role: Literal["admin", "member"] = "member"
+
     # NotebookLM Enterprise (experimental, off by default)
     notebooklm_enterprise_enabled: bool = False
     google_cloud_project: str | None = None

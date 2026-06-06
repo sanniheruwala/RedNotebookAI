@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from pydantic import SecretStr
 
 from rednotebook.auth.models import User, make_default_user
@@ -14,6 +14,7 @@ from rednotebook.auth.sessions import (
     decode_session_token,
 )
 from rednotebook.auth.store import UserStore
+from rednotebook.auth.tokens import looks_like_api_token, verify_token
 from rednotebook.config.settings import Settings, get_settings
 from rednotebook.connectors.trino import TrinoConnectionConfig, TrinoConnector
 from rednotebook.knowledge.store import InternalKnowledgeStore
@@ -59,16 +60,35 @@ def user_store_dep(settings: Settings = Depends(settings_dep)) -> UserStore:
 
 def require_user(
     session: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
+    authorization: str | None = Header(default=None),
     settings: Settings = Depends(settings_dep),
     store: UserStore = Depends(user_store_dep),
 ) -> User:
     """Resolve the current user, or substitute the synthetic default user.
+
+    Resolution order (when AUTH_ENABLED):
+      1. ``Authorization: Bearer <api-token>`` if shaped like ``rnt_*``
+      2. Session cookie
 
     When AUTH_ENABLED is false, the app behaves as today: a single shared
     "default" user owns every notebook and knowledge resource.
     """
     if not settings.auth_enabled:
         return make_default_user()
+
+    # ---------- 1. Bearer API token ----------
+    if authorization and authorization.lower().startswith("bearer "):
+        plaintext = authorization.split(" ", 1)[1].strip()
+        if looks_like_api_token(plaintext):
+            user = _user_from_api_token(plaintext, store)
+            if user is not None:
+                return user
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API token",
+            )
+
+    # ---------- 2. Session cookie ----------
     if not session:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -87,6 +107,22 @@ def require_user(
             detail="User no longer exists or is disabled",
         )
     return user
+
+
+def _user_from_api_token(plaintext: str, store: UserStore) -> User | None:
+    """Look up the user for a Bearer API token; refresh last_used_at."""
+    for token in store.list_tokens():
+        if not token.is_valid:
+            continue
+        if not plaintext.startswith(token.prefix):
+            continue
+        if verify_token(plaintext, token.token_hash):
+            store.touch_token(token.id)
+            user = store.get_user(token.user_id)
+            if user and user.is_active:
+                return user
+            return None
+    return None
 
 
 def require_admin(user: User = Depends(require_user)) -> User:
