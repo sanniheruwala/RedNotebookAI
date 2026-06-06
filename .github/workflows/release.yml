@@ -15,6 +15,42 @@ env:
 
 jobs:
   # ----------------------------------------------------------------------
+  # 1. Create the GitHub Release shell up front so every build job can
+  #    attach assets directly to it (avoids the flaky cross-job
+  #    download-artifact dance that bit us on v0.1.0/v0.1.1).
+  # ----------------------------------------------------------------------
+  create-release:
+    name: Create GitHub Release
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: create
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          body: |
+            ## Install
+
+            **Docker (any OS):**
+            ```bash
+            docker run -p 8000:8000 ghcr.io/${{ github.repository_owner }}/rednotebook-ai:${{ github.ref_name }}
+            ```
+
+            **Python (any OS):** download the attached `*.whl` and `pip install` it.
+
+            **Desktop apps:** download the platform-specific artifact below.
+            - **macOS:** `rednotebook-macos.dmg`
+            - **Windows:** `rednotebook-windows.zip` (extract and run `RedNotebook AI.exe`)
+            - **Linux:** `rednotebook-linux.tar.gz` (extract and run `RedNotebook AI`)
+
+  # ----------------------------------------------------------------------
   # Docker image to GHCR (multi-arch)
   # ----------------------------------------------------------------------
   docker:
@@ -56,10 +92,12 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ----------------------------------------------------------------------
-  # Python sdist + wheel (uploaded to the Release; PyPI is opt-in)
+  # Python sdist + wheel (attached directly to the Release)
   # ----------------------------------------------------------------------
   python-dists:
     name: Python sdist + wheel
+    needs: [create-release]
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,17 +107,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip build
           python -m build
-      - uses: actions/upload-artifact@v4
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
         with:
-          name: python-dists
-          path: dist/*
+          tag_name: ${{ github.ref_name }}
+          files: dist/*
+          fail_on_unmatched_files: true
 
   # ----------------------------------------------------------------------
   # Desktop binaries: macOS, Windows, Linux (PyInstaller one-folder build)
+  # Each matrix arm attaches its packaged binary straight to the Release.
   # ----------------------------------------------------------------------
   desktop:
     name: Desktop binary (${{ matrix.os }})
-    needs: [python-dists]
+    needs: [create-release]
+    if: github.ref_type == 'tag'
     strategy:
       fail-fast: false
       matrix:
@@ -140,7 +182,6 @@ jobs:
             --no-internet-enable \
             out/rednotebook-macos.dmg \
             "dist/RedNotebook AI.app" || \
-          # Fallback if create-dmg flakes (it sometimes does on CI): hdiutil
           hdiutil create -volname "RedNotebook AI" -srcfolder "dist/RedNotebook AI.app" \
             -ov -format UDZO out/rednotebook-macos.dmg
 
@@ -157,46 +198,9 @@ jobs:
           mkdir -p out
           tar -C dist -czf out/rednotebook-linux.tar.gz "RedNotebook AI"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: out/${{ matrix.artifact }}
-
-  # ----------------------------------------------------------------------
-  # Publish a GitHub Release with every artifact attached
-  # ----------------------------------------------------------------------
-  release:
-    name: GitHub Release
-    needs: [docker, python-dists, desktop]
-    if: github.ref_type == 'tag'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Inventory
-        run: ls -R artifacts
-      - name: Create release
+      - name: Attach to release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
-          files: |
-            artifacts/python-dists/*
-            artifacts/rednotebook-macos.dmg/rednotebook-macos.dmg
-            artifacts/rednotebook-windows.zip/rednotebook-windows.zip
-            artifacts/rednotebook-linux.tar.gz/rednotebook-linux.tar.gz
-          body: |
-            ## Install
-
-            **Docker (any OS):**
-            ```bash
-            docker run -p 8000:8000 ghcr.io/${{ github.repository_owner }}/rednotebook-ai:${{ github.ref_name }}
-            ```
-
-            **Python (any OS):** `pip install rednotebook-ai==${{ github.ref_name }}` (from the attached wheel).
-
-            **Desktop apps:** download the platform-specific artifact below.
-            - **macOS:** `rednotebook-macos.dmg`
-            - **Windows:** `rednotebook-windows.zip` (extract and run `RedNotebook AI.exe`)
-            - **Linux:** `rednotebook-linux.tar.gz` (extract and run `RedNotebook AI`)
+          tag_name: ${{ github.ref_name }}
+          files: out/${{ matrix.artifact }}
+          fail_on_unmatched_files: true
