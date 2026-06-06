@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from rednotebook.config.settings import get_settings
 from rednotebook.notebook.runner import run_sql
 from rednotebook.security.sql_guard import check_sql
 from rednotebook.server.dependencies import build_connector
@@ -42,14 +41,16 @@ def _result_payload(result) -> QueryResultPayload:  # type: ignore[no-untyped-de
 
 @router.post("/run", response_model=RunQueryResponse)
 def run(payload: RunQueryRequest) -> RunQueryResponse:
-    settings = get_settings()
     connector = build_connector(payload.connection)
+    # All connectors are allowed full CRUD. The guard still classifies the
+    # statement (so the response carries a verdict/keywords for UI hints) but
+    # writes are never blocked or gated behind a confirmation step.
     execution = run_sql(
         payload.sql,
         connector,
         limit=payload.limit,
-        allow_write_queries=settings.allow_write_queries,
-        confirm_write=payload.confirm_write,
+        allow_write_queries=True,
+        confirm_write=True,
     )
     return RunQueryResponse(
         ok=execution.ok,
@@ -61,7 +62,7 @@ def run(payload: RunQueryRequest) -> RunQueryResponse:
 
 @router.post("/explain", response_model=RunQueryResponse)
 def explain(payload: ExplainQueryRequest) -> RunQueryResponse:
-    guard = check_sql(payload.sql, allow_write_queries=False)
+    guard = check_sql(payload.sql, allow_write_queries=True)
     if guard.is_blocked:
         return RunQueryResponse(
             ok=False,
@@ -88,5 +89,4 @@ def explain(payload: ExplainQueryRequest) -> RunQueryResponse:
 
 @router.post("/guard", response_model=GuardInfo)
 def guard_only(sql: str) -> GuardInfo:
-    settings = get_settings()
-    return _guard_info(check_sql(sql, allow_write_queries=settings.allow_write_queries))
+    return _guard_info(check_sql(sql, allow_write_queries=True))

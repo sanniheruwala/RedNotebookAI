@@ -99,7 +99,7 @@ export function NotebookCanvas() {
   };
 
   return (
-    <main className="app-mesh relative flex h-full flex-1 flex-col">
+    <main className="app-mesh relative flex h-full min-w-0 flex-1 flex-col">
       <ScrollArea className="scrollbar-thin flex-1">
         <div className="mx-auto w-full space-y-4 px-6 py-6 xl:px-10">
           {cells.length === 0 && <EmptyState />}
@@ -158,13 +158,15 @@ function SortableCell({
       onClick={onSelect}
       className={`group relative rounded-2xl ${selected ? "ring-brand" : ""}`}
     >
-      {/* Drag handle */}
+      {/* Drag handle. Always laid out (so the cursor doesn't leave its hit box
+          mid-hover); visually fades in on cell hover or while dragging. Uses
+          cursor-grab → grabbing while pressed. */}
       <button
         {...attributes}
         {...listeners}
         type="button"
         aria-label="Drag to reorder"
-        className="absolute -left-7 top-3 hidden h-6 w-6 cursor-grab items-center justify-center rounded-md text-muted-foreground/50 hover:bg-accent hover:text-foreground group-hover:flex"
+        className={`absolute -left-7 top-3 flex h-6 w-7 cursor-grab items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-opacity hover:bg-accent hover:text-foreground hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing ${isDragging ? "opacity-100" : ""}`}
       >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
