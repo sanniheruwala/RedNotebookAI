@@ -1,4 +1,4 @@
 """RedNotebook AI. Open-source AI data notebook."""
 
-__version__ = "0.7.6"
+__version__ = "0.7.7"
 __app_name__ = "RedNotebook AI"

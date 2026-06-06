@@ -19,12 +19,14 @@ import {
   Square,
   Trash2,
   Wand2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Markdown } from "@/components/markdown";
 import { ResultTabs } from "@/components/notebook/result-tabs";
 import { useActiveCellResult, useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
@@ -99,17 +101,33 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   // Abort any in-flight query if the cell unmounts (e.g., notebook close).
   React.useEffect(() => () => abortRef.current?.abort(), []);
 
+  // Inline explanation panel state. We render the full markdown response
+  // in the cell itself rather than a 300-char toast preview that vanishes.
+  const [explanation, setExplanation] = React.useState<{ text: string; provider?: string } | null>(null);
+  const explainToastId = `explain-${cell.id}`;
   const explain = useMutation({
     mutationFn: () => api.aiExplainSQL({ sql: cell.sql, context: {} }),
-    onSuccess: (res) => toast.message("Explanation", { description: res.text.slice(0, 300) }),
-    onError: (err: Error) => toast.error(err.message),
+    onMutate: () => {
+      toast.loading("AI is explaining your SQL…", { id: explainToastId });
+    },
+    onSuccess: (res) => {
+      setExplanation({ text: res.text, provider: res.provider });
+      toast.dismiss(explainToastId);
+    },
+    onError: (err: Error) => toast.error(err.message, { id: explainToastId }),
   });
 
+  const optimizeToastId = `optimize-${cell.id}`;
   const optimize = useMutation({
     mutationFn: () => api.aiOptimizeSQL({ sql: cell.sql, context: {} }),
-    onSuccess: (res) =>
-      updateCell(cell.id, (c) => (c.cell_type === "sql" ? { ...c, sql: res.text } : c)),
-    onError: (err: Error) => toast.error(err.message),
+    onMutate: () => {
+      toast.loading("AI is optimizing your SQL…", { id: optimizeToastId });
+    },
+    onSuccess: (res) => {
+      updateCell(cell.id, (c) => (c.cell_type === "sql" ? { ...c, sql: res.text } : c));
+      toast.success("SQL optimized — cell updated", { id: optimizeToastId });
+    },
+    onError: (err: Error) => toast.error(err.message, { id: optimizeToastId }),
   });
 
   const onChange = (next: string | undefined) =>
@@ -354,21 +372,64 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
                 size="sm"
                 variant="ghost"
                 onClick={() => explain.mutate()}
-                disabled={explain.isPending}
+                disabled={explain.isPending || isRunning}
                 className="h-8 gap-1.5"
               >
-                <Sparkles className="h-3.5 w-3.5 text-primary" /> Explain
+                {explain.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                )}
+                {explain.isPending ? "Explaining…" : "Explain"}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => optimize.mutate()}
-                disabled={optimize.isPending}
+                disabled={optimize.isPending || isRunning}
                 className="h-8 gap-1.5"
               >
-                <Wand2 className="h-3.5 w-3.5" /> Optimize
+                {optimize.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="h-3.5 w-3.5" />
+                )}
+                {optimize.isPending ? "Optimizing…" : "Optimize"}
               </Button>
             </div>
+
+            <AnimatePresence>
+              {explanation && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mx-3 mb-3 rounded-xl border border-primary/30 bg-primary/[0.04] p-3"
+                >
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary">
+                      <Sparkles className="h-3 w-3" />
+                      AI explanation
+                      {explanation.provider && (
+                        <span className="font-normal text-muted-foreground/80">
+                          · {explanation.provider}
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-5 w-5"
+                      onClick={() => setExplanation(null)}
+                      aria-label="Dismiss explanation"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <Markdown variant="cell">{explanation.text}</Markdown>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <AnimatePresence>
               {cellResult?.error && (

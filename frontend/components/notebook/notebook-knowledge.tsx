@@ -57,17 +57,21 @@ export function NotebookKnowledgeBody() {
       const id = await ensure();
       return api.knowledgeChat({ notebook_id: id, question });
     },
-    onSuccess: (res, question) => {
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: question },
-        { role: "assistant", content: res.answer },
-      ]);
+    onMutate: (question) => {
+      // Optimistically render the user's question so the thinking bubble
+      // has something to sit under while the API is in flight.
+      setMessages((prev) => [...prev, { role: "user", content: question }]);
     },
-    onError: (err: Error) =>
-      toast.error(err instanceof HttpError ? err.message : err.message),
+    onSuccess: (res) => {
+      setMessages((prev) => [...prev, { role: "assistant", content: res.answer }]);
+    },
+    onError: (err: Error) => {
+      setMessages((prev) => prev.slice(0, -1));
+      toast.error(err instanceof HttpError ? err.message : err.message);
+    },
   });
 
+  const infographicToastId = "knowledge-infographic";
   const generateInfographic = useMutation({
     mutationFn: async () => {
       const id = await ensure();
@@ -81,11 +85,15 @@ export function NotebookKnowledgeBody() {
         persist: true,
       });
     },
+    onMutate: () => {
+      toast.loading("AI is drafting your infographic…", { id: infographicToastId });
+    },
     onSuccess: (res) => {
       setInfographic({ brief: res.brief, html: res.html });
       qc.invalidateQueries({ queryKey: ["knowledge-sources"] });
+      toast.success("Infographic ready", { id: infographicToastId });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message, { id: infographicToastId }),
   });
 
   const sourceCount = sources.data?.sources.length ?? 0;
@@ -146,30 +154,38 @@ export function NotebookKnowledgeBody() {
         </div>
         <ScrollArea className="flex-1 px-4 py-2">
           <div className="space-y-2">
-            {messages.length === 0 ? (
+            {messages.length === 0 && !ask.isPending ? (
               <div className="rounded-md border border-dashed bg-muted/10 px-3 py-3 text-[11px] text-muted-foreground">
                 Try <em>&ldquo;what does the schema look like?&rdquo;</em> once
                 you&apos;ve added a source.
               </div>
             ) : (
-              messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={`rounded-md border p-2 text-xs ${
-                    m.role === "user"
-                      ? "ml-3 border-primary/30 bg-primary/5"
-                      : "mr-3 bg-card"
-                  }`}
-                >
-                  <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                    {m.role === "assistant" && (
-                      <Sparkles className="h-2.5 w-2.5 text-primary" />
-                    )}
-                    {m.role}
+              <>
+                {messages.map((m, i) => (
+                  <div
+                    key={i}
+                    className={`rounded-md border p-2 text-xs ${
+                      m.role === "user"
+                        ? "ml-3 border-primary/30 bg-primary/5"
+                        : "mr-3 bg-card"
+                    }`}
+                  >
+                    <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                      {m.role === "assistant" && (
+                        <Sparkles className="h-2.5 w-2.5 text-primary" />
+                      )}
+                      {m.role}
+                    </div>
+                    <Markdown variant="compact">{m.content}</Markdown>
                   </div>
-                  <Markdown variant="compact">{m.content}</Markdown>
-                </div>
-              ))
+                ))}
+                {ask.isPending && (
+                  <div className="mr-3 flex items-center gap-2 rounded-md border bg-card px-2 py-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    AI is grounding your answer in the sources…
+                  </div>
+                )}
+              </>
             )}
           </div>
         </ScrollArea>

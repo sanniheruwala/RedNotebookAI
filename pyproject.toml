@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rednotebook-ai"
-version = "0.7.6"
+version = "0.7.7"
 description = "Open-source AI data notebook for Trino and modern data platforms."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -48,11 +48,19 @@ dependencies = [
     "oracledb>=2.0",
     "clickhouse-sqlalchemy>=0.3",
     "databricks-sqlalchemy>=1.0",
+    # AI SDKs bundled by default so picking "OpenAI" or "Anthropic" in the
+    # admin AI settings actually instantiates the real provider instead of
+    # silently falling back to MockAIProvider when the SDK is missing.
+    # Ollama uses stdlib urllib so it doesn't need an extra package.
+    "openai>=1.10",
+    "anthropic>=0.18",
 ]
 
 [project.optional-dependencies]
-ai-openai = ["openai>=1.10"]
-ai-anthropic = ["anthropic>=0.18"]
+# Legacy AI extras: kept so old install commands like
+# `pip install rednotebook-ai[ai-anthropic]` keep working as no-ops.
+ai-openai = []
+ai-anthropic = []
 # Legacy per-dialect extras: kept so old install commands like
 # `pip install rednotebook-ai[postgres]` keep working, but they're now
 # no-ops because every driver ships in the base dependencies above.

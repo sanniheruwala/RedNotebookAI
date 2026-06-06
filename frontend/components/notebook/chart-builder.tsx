@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Wand2 } from "lucide-react";
+import { Loader2, Wand2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -38,6 +38,7 @@ export function ChartBuilder({
 }) {
   const columnNames = result.columns.map((c) => c.name);
 
+  const suggestToastId = "chart-auto-suggest";
   const suggest = useMutation({
     mutationFn: () =>
       api.chartSuggest({
@@ -45,6 +46,11 @@ export function ChartBuilder({
         sample_rows: result.rows.slice(0, 20),
         row_count: result.row_count,
       }),
+    onMutate: () => {
+      toast.loading("AI is picking the best chart for this result…", {
+        id: suggestToastId,
+      });
+    },
     onSuccess: (res) => {
       const s = res.suggestion;
       onChange({
@@ -56,9 +62,9 @@ export function ChartBuilder({
         aggregation: s.aggregation ?? null,
         title: s.title ?? config.title ?? null,
       });
-      toast.success(`Suggested: ${s.chart_type}`);
+      toast.success(`Suggested: ${s.chart_type}`, { id: suggestToastId });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message, { id: suggestToastId }),
   });
 
   return (
@@ -99,8 +105,19 @@ export function ChartBuilder({
         <Input value={config.title ?? ""} onChange={(e) => onChange({ ...config, title: e.target.value || null })} />
       </Field>
       <div className="col-span-2 flex items-end justify-end">
-        <Button size="sm" variant="secondary" onClick={() => suggest.mutate()} disabled={suggest.isPending}>
-          <Wand2 className="h-4 w-4" /> Auto-suggest
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => suggest.mutate()}
+          disabled={suggest.isPending}
+          className="gap-1.5"
+        >
+          {suggest.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          ) : (
+            <Wand2 className="h-4 w-4" />
+          )}
+          {suggest.isPending ? "Suggesting…" : "Auto-suggest"}
         </Button>
       </div>
     </div>

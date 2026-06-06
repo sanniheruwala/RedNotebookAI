@@ -69,9 +69,26 @@ export function ResultTabs({ cell, result }: { cell: SQLCell; result: QueryResul
         <ChartView result={result} config={chartConfig} />
       </TabsContent>
       <TabsContent value="ai" className="space-y-3">
-        <Button size="sm" variant="secondary" onClick={() => summarize.mutate()} disabled={summarize.isPending}>
-          <Sparkles className="h-4 w-4" /> Summarize result
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => summarize.mutate()}
+          disabled={summarize.isPending}
+          className="gap-2"
+        >
+          {summarize.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {summarize.isPending ? "Summarizing…" : "Summarize result"}
         </Button>
+        {summarize.isPending && !aiSummary && (
+          <div className="flex items-center gap-2 rounded-xl border bg-card p-4 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            AI is summarizing your result…
+          </div>
+        )}
         {aiSummary && (
           <div className="rounded-xl border bg-card p-4">
             <Markdown variant="cell">{aiSummary}</Markdown>

@@ -24,6 +24,14 @@
 - ✅ Metadata panel sized correctly so the tree is visible alongside the
        notebooks list, plus auto-expand for single-catalog/single-schema
        connectors (v0.7.6).
+- ✅ AI SDKs (`anthropic`, `openai`) bundled by default — picking an AI
+       provider in the admin settings now instantiates the real provider
+       instead of silently falling back to the mock (v0.7.7).
+- ✅ Visible "AI is thinking…" states wired into every AI/Knowledge
+       entry point (Explain / Optimize / Ask AI / Knowledge chat /
+       Summarize result / Generate infographic) and a warning log when
+       a configured provider falls back to mock so the failure surfaces
+       in server logs (v0.7.7).
 - 🟡 Server-side query cancellation via query-id tracking (DuckDB
        `interrupt()`, Trino `cancel()`, Postgres `pg_cancel_backend`).
 - 🟡 Better profiling (histograms, mutual-info hints)

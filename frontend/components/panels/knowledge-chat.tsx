@@ -33,18 +33,27 @@ export function KnowledgeChat({
         source_ids: sourceIds,
       });
     },
-    onSuccess: (res, question) => {
+    onMutate: (question) => {
+      // Show the user's message immediately; the assistant reply appears
+      // as a separate "thinking" bubble until the API resolves.
+      setMessages((prev) => [...prev, { role: "user", content: question }]);
+    },
+    onSuccess: (res) => {
       setMessages((prev) => [
         ...prev,
-        { role: "user", content: question },
         { role: "assistant", content: res.answer, provider: res.provider },
       ]);
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error, _question) => {
+      // Roll back the optimistic user message so the input isn't lost
+      // visually if the request failed before any work happened.
+      setMessages((prev) => prev.slice(0, -1));
+      toast.error(err.message);
+    },
   });
 
   const send = (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || ask.isPending) return;
     ask.mutate(text);
     setPrompt("");
   };
@@ -91,6 +100,19 @@ export function KnowledgeChat({
                 <Markdown variant="compact">{m.content}</Markdown>
               </motion.div>
             ))}
+            {ask.isPending && (
+              <motion.div
+                key="thinking"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.22 }}
+                className="mr-4 flex items-center gap-2 rounded-xl border bg-card px-2.5 py-2 text-xs text-muted-foreground"
+              >
+                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                AI is grounding your answer in the sources…
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </ScrollArea>

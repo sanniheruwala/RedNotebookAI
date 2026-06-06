@@ -125,7 +125,7 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
           </div>
         </div>
 
-        {messages.length > 0 && (
+        {(messages.length > 0 || ask.isPending) && (
           <div className="mb-3 space-y-2">
             <AnimatePresence initial={false}>
               {messages.map((m, i) => (
@@ -138,6 +138,17 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
                   <ChatBubble message={m} onInsert={accept} />
                 </motion.div>
               ))}
+              {ask.isPending && (
+                <motion.div
+                  key="thinking"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <ThinkingBubble />
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         )}
@@ -191,6 +202,20 @@ function lastUser(prev: AIChatMessage[], _fallback: string): string {
     if (prev[i].role === "user") return prev[i].content;
   }
   return prev[prev.length - 1]?.content ?? "";
+}
+
+function ThinkingBubble() {
+  return (
+    <div className="flex items-start gap-2">
+      <div className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/15 text-primary ring-1 ring-primary/30">
+        <Sparkles className="h-3 w-3" />
+      </div>
+      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+        AI is thinking…
+      </div>
+    </div>
+  );
 }
 
 function ChatBubble({

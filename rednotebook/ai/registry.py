@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from rednotebook.ai.base import AIProvider
 from rednotebook.config.settings import Settings, get_settings
+
+_log = logging.getLogger(__name__)
 
 _REGISTRY: dict[str, type[AIProvider]] = {}
 
@@ -72,6 +75,11 @@ def get_provider(settings: Settings | None = None) -> AIProvider:
 
     This keeps `.env`-driven local setups working while letting team admins
     flip providers and rotate keys from the UI without a redeploy.
+
+    Any fallback to mock is logged at WARNING — silent fallback once cost
+    a release cycle of "AI seems to be not working", because the configured
+    provider failed to instantiate (missing SDK, missing key) and there was
+    no signal that anything had gone wrong.
     """
     cfg = resolve_settings(settings)
     name = (cfg.ai_provider or "mock").lower()
@@ -79,10 +87,23 @@ def get_provider(settings: Settings | None = None) -> AIProvider:
     if provider_class is None:
         from rednotebook.ai.mock import MockAIProvider
 
+        if name != "mock":
+            _log.warning(
+                "AI provider %r is not registered; falling back to MockAIProvider. "
+                "Registered providers: %s",
+                name,
+                sorted(_REGISTRY),
+            )
         return MockAIProvider()
     try:
         return provider_class(cfg)  # type: ignore[arg-type]
-    except Exception:
+    except Exception as exc:
         from rednotebook.ai.mock import MockAIProvider
 
+        _log.warning(
+            "AI provider %r failed to initialise (%s); falling back to "
+            "MockAIProvider. Check API key + bundled SDK install.",
+            name,
+            exc,
+        )
         return MockAIProvider()
