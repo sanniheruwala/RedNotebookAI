@@ -1,21 +1,25 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { cn } from "@/lib/utils";
 
-const sans = Inter({
-  subsets: ["latin"],
-  display: "swap",
+// Self-hosted variable fonts (SIL Open Font License). Self-hosting keeps
+// production builds air-gapped from Google Fonts so Docker / CI runs don't
+// fail when fonts.googleapis.com is rate-limited or unreachable. License
+// files live next to the woff2 files under app/fonts/.
+const sans = localFont({
+  src: "./fonts/Inter-Variable.woff2",
   variable: "--font-sans",
-  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  weight: "100 900",
 });
 
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  display: "swap",
+const mono = localFont({
+  src: "./fonts/JetBrainsMono-Variable.woff2",
   variable: "--font-mono",
-  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  weight: "100 800",
 });
 
 export const metadata: Metadata = {
