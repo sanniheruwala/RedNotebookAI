@@ -1,31 +1,37 @@
-"""Metadata exploration endpoints."""
+"""Metadata exploration endpoints (connector-agnostic)."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 
-from rednotebook.server.dependencies import build_trino_connector
+from rednotebook.server.dependencies import build_connector
 from rednotebook.server.schemas import (
     CatalogListResponse,
     ColumnListResponse,
+    ConnectionPayload,
     SchemaListResponse,
     TableListItem,
     TableListResponse,
-    TrinoConnectionPayload,
 )
 
 router = APIRouter()
 
 
-def _connector(payload: TrinoConnectionPayload):
+# FastAPI needs a discriminator hint when the body type is a Union.
+# `Body(..., discriminator="connector_type")` wires the same logic at the
+# route level that the schema uses internally.
+ConnectionBody = Body(..., discriminator="connector_type")  # type: ignore[arg-type]
+
+
+def _connector(payload):  # type: ignore[no-untyped-def]
     try:
-        return build_trino_connector(payload)
+        return build_connector(payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/catalogs", response_model=CatalogListResponse)
-def list_catalogs(payload: TrinoConnectionPayload) -> CatalogListResponse:
+def list_catalogs(payload: ConnectionPayload = ConnectionBody) -> CatalogListResponse:
     try:
         catalogs = _connector(payload).list_catalogs()
     except Exception as exc:
@@ -34,7 +40,10 @@ def list_catalogs(payload: TrinoConnectionPayload) -> CatalogListResponse:
 
 
 @router.post("/schemas", response_model=SchemaListResponse)
-def list_schemas(payload: TrinoConnectionPayload, catalog: str) -> SchemaListResponse:
+def list_schemas(
+    catalog: str,
+    payload: ConnectionPayload = ConnectionBody,
+) -> SchemaListResponse:
     try:
         schemas = _connector(payload).list_schemas(catalog)
     except Exception as exc:
@@ -43,7 +52,11 @@ def list_schemas(payload: TrinoConnectionPayload, catalog: str) -> SchemaListRes
 
 
 @router.post("/tables", response_model=TableListResponse)
-def list_tables(payload: TrinoConnectionPayload, catalog: str, schema: str) -> TableListResponse:
+def list_tables(
+    catalog: str,
+    schema: str,
+    payload: ConnectionPayload = ConnectionBody,
+) -> TableListResponse:
     try:
         tables = _connector(payload).list_tables(catalog, schema)
     except Exception as exc:
@@ -63,13 +76,15 @@ def list_tables(payload: TrinoConnectionPayload, catalog: str, schema: str) -> T
 
 @router.post("/columns", response_model=ColumnListResponse)
 def list_columns(
-    payload: TrinoConnectionPayload,
     catalog: str,
     schema: str,
     table: str,
+    payload: ConnectionPayload = ConnectionBody,
 ) -> ColumnListResponse:
     try:
         cols = _connector(payload).list_columns(catalog, schema, table)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return ColumnListResponse(columns=cols)
+
+

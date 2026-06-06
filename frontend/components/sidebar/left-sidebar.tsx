@@ -7,10 +7,11 @@ import { ConnectionDialog } from "@/components/sidebar/connection-dialog";
 import { MetadataExplorer } from "@/components/sidebar/metadata-explorer";
 import { NotebooksList } from "@/components/sidebar/notebooks-list";
 import { useConnectionStore } from "@/store/connection-store";
+import { connectionLabel, isConfigured } from "@/lib/connection";
 
 export function LeftSidebar() {
   const connection = useConnectionStore((s) => s.connection);
-  const connected = !!connection?.host;
+  const connected = isConfigured(connection);
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -26,7 +27,7 @@ export function LeftSidebar() {
               }`}
             />
             <div className="truncate text-sm font-medium">
-              {connection?.host || "Not configured"}
+              {connectionLabel(connection)}
             </div>
           </div>
         </div>

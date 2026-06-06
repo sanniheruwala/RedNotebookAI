@@ -7,6 +7,7 @@ from rednotebook.connectors.base import (
     QueryResult,
     TableInfo,
 )
+from rednotebook.connectors.duckdb import DuckDBConnectionConfig, DuckDBConnector
 from rednotebook.connectors.registry import (
     available_connectors,
     get_connector_class,
@@ -18,6 +19,8 @@ __all__ = [
     "BaseConnector",
     "ColumnInfo",
     "ConnectionConfig",
+    "DuckDBConnectionConfig",
+    "DuckDBConnector",
     "QueryResult",
     "TableInfo",
     "TrinoConnectionConfig",

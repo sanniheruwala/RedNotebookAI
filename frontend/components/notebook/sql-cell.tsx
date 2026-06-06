@@ -28,6 +28,7 @@ import { ResultTabs } from "@/components/notebook/result-tabs";
 import { useActiveCellResult, useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
 import { api } from "@/lib/api";
+import { isConfigured } from "@/lib/connection";
 import { formatDuration, formatNumber } from "@/lib/utils";
 import type { SQLCell as SQLCellType } from "@/lib/types";
 
@@ -47,8 +48,8 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
 
   const run = useMutation({
     mutationFn: async () => {
-      if (!connection?.host || !connection?.user) {
-        throw new Error("Configure a Trino connection first");
+      if (!isConfigured(connection) || !connection) {
+        throw new Error("Configure a connection first");
       }
       setCellResult(cell.id, { running: true, error: null });
       return api.runQuery({ connection, sql: cell.sql, limit: cell.limit ?? undefined });

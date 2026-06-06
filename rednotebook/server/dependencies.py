@@ -51,6 +51,32 @@ def build_trino_connector(payload: TrinoConnectionPayload) -> TrinoConnector:
     return TrinoConnector(cfg)
 
 
+def build_connector(payload):  # type: ignore[no-untyped-def]
+    """Build a connector from any ConnectionPayload (Trino or DuckDB).
+
+    Dispatches on the discriminator field so new connectors can be added
+    without touching every router. Always prefer this over the
+    Trino-specific helper above.
+    """
+    from rednotebook.connectors.duckdb import (
+        DuckDBConnectionConfig,
+        DuckDBConnector,
+    )
+
+    connector_type = getattr(payload, "connector_type", "trino")
+    if connector_type == "duckdb":
+        cfg = DuckDBConnectionConfig(
+            connection_name=payload.connection_name,
+            connector_type="duckdb",
+            database=payload.database,
+            read_only=payload.read_only,
+            working_dir=payload.working_dir,
+            max_result_rows=payload.max_result_rows,
+        )
+        return DuckDBConnector(cfg)
+    return build_trino_connector(payload)
+
+
 # ---------------------------------------------------------------------------
 # Auth dependencies
 # ---------------------------------------------------------------------------

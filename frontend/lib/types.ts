@@ -39,6 +39,7 @@ export type APITokenCreated = APITokenPublic & { plaintext: string };
 export type OAuthProviders = { providers: string[] };
 
 export type TrinoConnection = {
+  connector_type: "trino";
   connection_name: string;
   host: string;
   port: number;
@@ -53,6 +54,17 @@ export type TrinoConnection = {
   max_preview_rows?: number;
   max_result_rows?: number;
 };
+
+export type DuckDBConnection = {
+  connector_type: "duckdb";
+  connection_name: string;
+  database: string; // ":memory:" or a file path
+  read_only?: boolean;
+  working_dir?: string | null;
+  max_result_rows?: number;
+};
+
+export type Connection = TrinoConnection | DuckDBConnection;
 
 export type ColumnInfo = {
   name: string;

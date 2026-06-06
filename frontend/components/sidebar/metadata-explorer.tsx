@@ -9,13 +9,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useConnectionStore } from "@/store/connection-store";
 import { useNotebookStore } from "@/store/notebook-store";
 import { api } from "@/lib/api";
-import type { TrinoConnection } from "@/lib/types";
+import { connectionKey, isConfigured } from "@/lib/connection";
+import type { Connection } from "@/lib/types";
 
 export function MetadataExplorer() {
   const connection = useConnectionStore((s) => s.connection);
   const [filter, setFilter] = React.useState("");
 
-  if (!connection?.host) {
+  if (!isConfigured(connection)) {
     return (
       <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
@@ -23,7 +24,8 @@ export function MetadataExplorer() {
         </div>
         <div className="mt-1 text-sm font-medium">Browse your data</div>
         <p className="text-balance text-xs leading-relaxed text-muted-foreground">
-          Configure a Trino connection to browse catalogs, schemas, and tables.
+          Configure a connection (DuckDB or Trino) to browse catalogs,
+          schemas, and tables.
         </p>
       </div>
     );
@@ -47,11 +49,11 @@ export function MetadataExplorer() {
   );
 }
 
-function CatalogsList({ connection, filter }: { connection: TrinoConnection; filter: string }) {
+function CatalogsList({ connection, filter }: { connection: Connection; filter: string }) {
   const catalogs = useQuery({
-    queryKey: ["catalogs", connection.host, connection.user],
+    queryKey: ["catalogs", connectionKey(connection)],
     queryFn: () => api.listCatalogs(connection),
-    enabled: !!connection.host,
+    enabled: isConfigured(connection),
   });
 
   if (catalogs.isPending) {
@@ -75,7 +77,7 @@ function CatalogNode({
   catalog,
   filter,
 }: {
-  connection: TrinoConnection;
+  connection: Connection;
   catalog: string;
   filter: string;
 }) {
@@ -95,12 +97,12 @@ function SchemasList({
   catalog,
   filter,
 }: {
-  connection: TrinoConnection;
+  connection: Connection;
   catalog: string;
   filter: string;
 }) {
   const schemas = useQuery({
-    queryKey: ["schemas", connection.host, catalog],
+    queryKey: ["schemas", connectionKey(connection), catalog],
     queryFn: () => api.listSchemas(connection, catalog),
   });
 
@@ -122,7 +124,7 @@ function SchemaNode({
   schema,
   filter,
 }: {
-  connection: TrinoConnection;
+  connection: Connection;
   catalog: string;
   schema: string;
   filter: string;
@@ -144,13 +146,13 @@ function TablesList({
   schema,
   filter,
 }: {
-  connection: TrinoConnection;
+  connection: Connection;
   catalog: string;
   schema: string;
   filter: string;
 }) {
   const tables = useQuery({
-    queryKey: ["tables", connection.host, catalog, schema],
+    queryKey: ["tables", connectionKey(connection), catalog, schema],
     queryFn: () => api.listTables(connection, catalog, schema),
   });
   const setSelected = useConnectionStore((s) => s.setSelected);

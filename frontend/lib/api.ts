@@ -11,11 +11,11 @@ import type {
   InvitePublic,
   KnowledgeNotebook,
   KnowledgeSource,
+  Connection,
   Notebook,
   OAuthProviders,
   QueryResultPayload,
   RunQueryResponse,
-  TrinoConnection,
 } from "./types";
 
 const API_BASE = "/api";
@@ -90,31 +90,31 @@ export const api = {
   revokeApiToken: (id: string) =>
     http<{ ok: boolean }>(`/me/tokens/${id}`, { method: "DELETE" }),
 
-  testConnection: (conn: TrinoConnection) =>
+  testConnection: (conn: Connection) =>
     http<{ ok: boolean; message: string; duration_seconds?: number }>("/connections/test", {
       method: "POST",
       body: JSON.stringify(conn),
     }),
 
-  listCatalogs: (conn: TrinoConnection) =>
+  listCatalogs: (conn: Connection) =>
     http<{ catalogs: string[] }>("/metadata/catalogs", {
       method: "POST",
       body: JSON.stringify(conn),
     }),
 
-  listSchemas: (conn: TrinoConnection, catalog: string) =>
+  listSchemas: (conn: Connection, catalog: string) =>
     http<{ schemas: string[] }>(`/metadata/schemas?catalog=${encodeURIComponent(catalog)}`, {
       method: "POST",
       body: JSON.stringify(conn),
     }),
 
-  listTables: (conn: TrinoConnection, catalog: string, schema: string) =>
+  listTables: (conn: Connection, catalog: string, schema: string) =>
     http<{ tables: Array<{ catalog: string; schema_name: string; name: string; table_type: string }> }>(
       `/metadata/tables?catalog=${encodeURIComponent(catalog)}&schema=${encodeURIComponent(schema)}`,
       { method: "POST", body: JSON.stringify(conn) }
     ),
 
-  listColumns: (conn: TrinoConnection, catalog: string, schema: string, table: string) =>
+  listColumns: (conn: Connection, catalog: string, schema: string, table: string) =>
     http<{ columns: ColumnInfo[] }>(
       `/metadata/columns?catalog=${encodeURIComponent(catalog)}&schema=${encodeURIComponent(
         schema
@@ -123,7 +123,7 @@ export const api = {
     ),
 
   runQuery: (body: {
-    connection: TrinoConnection;
+    connection: Connection;
     sql: string;
     limit?: number | null;
     confirm_write?: boolean;
@@ -133,7 +133,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  explainQuery: (body: { connection: TrinoConnection; sql: string }) =>
+  explainQuery: (body: { connection: Connection; sql: string }) =>
     http<RunQueryResponse>("/query/explain", {
       method: "POST",
       body: JSON.stringify(body),

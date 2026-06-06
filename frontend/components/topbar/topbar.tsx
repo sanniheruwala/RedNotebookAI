@@ -30,6 +30,7 @@ import { useActiveNotebook, useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
 import { useUIStore } from "@/store/ui-store";
 import { api } from "@/lib/api";
+import { connectionLabel, isConfigured } from "@/lib/connection";
 import { ConnectionDialog } from "@/components/sidebar/connection-dialog";
 
 export function Topbar() {
@@ -106,8 +107,8 @@ export function Topbar() {
 
   const runAllMutation = useMutation({
     mutationFn: async () => {
-      if (!connection?.host || !connection?.user) {
-        throw new Error("Configure a Trino connection first");
+      if (!isConfigured(connection) || !connection) {
+        throw new Error("Configure a connection first");
       }
       const sqlCells = notebook.cells.filter((c) => c.cell_type === "sql");
       for (const cell of sqlCells) {
@@ -147,7 +148,8 @@ export function Topbar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exportNotebook]);
 
-  const connected = !!connection?.host;
+  const connected = isConfigured(connection);
+  const connLabel = connectionLabel(connection);
 
   return (
     <header className="glass-strong sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b px-4">
@@ -164,9 +166,7 @@ export function Topbar() {
         />
         <div className="hidden items-center gap-1.5 lg:flex">
           <StatusDot ok={connected} />
-          <span className="text-[11px] text-muted-foreground">
-            {connected ? connection.host : "Not connected"}
-          </span>
+          <span className="text-[11px] text-muted-foreground">{connLabel}</span>
           {health.data?.ai_provider && (
             <>
               <span className="text-muted-foreground/40">·</span>
@@ -274,7 +274,7 @@ export function Topbar() {
           <Button size="sm" variant="outline" className="gap-2">
             <Database className="h-3.5 w-3.5" />
             <span className="max-w-[14ch] truncate text-xs">
-              {connected ? connection.host : "Configure Trino"}
+              {connected ? connLabel : "Configure connection"}
             </span>
           </Button>
         </ConnectionDialog>

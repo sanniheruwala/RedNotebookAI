@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from rednotebook.config.settings import get_settings
 from rednotebook.notebook.runner import run_sql
 from rednotebook.security.sql_guard import check_sql
-from rednotebook.server.dependencies import build_trino_connector
+from rednotebook.server.dependencies import build_connector
 from rednotebook.server.schemas import (
     ExplainQueryRequest,
     GuardInfo,
@@ -43,7 +43,7 @@ def _result_payload(result) -> QueryResultPayload:  # type: ignore[no-untyped-de
 @router.post("/run", response_model=RunQueryResponse)
 def run(payload: RunQueryRequest) -> RunQueryResponse:
     settings = get_settings()
-    connector = build_trino_connector(payload.connection)
+    connector = build_connector(payload.connection)
     execution = run_sql(
         payload.sql,
         connector,
@@ -69,7 +69,7 @@ def explain(payload: ExplainQueryRequest) -> RunQueryResponse:
             result=None,
             error="; ".join(guard.reasons),
         )
-    connector = build_trino_connector(payload.connection)
+    connector = build_connector(payload.connection)
     try:
         result = connector.explain_query(payload.sql)
         return RunQueryResponse(

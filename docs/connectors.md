@@ -49,7 +49,26 @@ register_connector("postgres", PostgresConnector)
 
 Then update the UI's connection dialog to accept your fields.
 
+## DuckDB connector
+
+`rednotebook.connectors.duckdb.DuckDBConnector` embeds DuckDB in-process.
+No external server required, which makes it the friendliest "try the app
+without standing up a warehouse" path.
+
+Supported inputs:
+
+- `database` — `":memory:"` for an ephemeral playground, or a path to a
+  `.duckdb` file for persistent state
+- `read_only` — open the file as read-only
+- `working_dir` — sets `file_search_path` so relative file paths in
+  `read_csv_auto` / `read_parquet` resolve from this directory
+- `max_result_rows`
+
+Catalogs come from `duckdb_databases()` (the default file's basename
+becomes the catalog name). Schemas / tables / columns are introspected
+via `information_schema`, matching the Trino connector's shape.
+
 ## Planned connectors
 
 PostgreSQL, MySQL, BigQuery, Snowflake, Redshift, Athena, Databricks SQL,
-DuckDB, ClickHouse, CSV/Excel uploads, Google Sheets.
+ClickHouse, CSV/Excel uploads, Google Sheets.

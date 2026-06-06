@@ -14,6 +14,9 @@ from rednotebook.notebook.models import ChartConfig, Notebook
 
 # ----- Connections -----------------------------------------------------------
 class TrinoConnectionPayload(BaseModel):
+    """Trino-specific connection fields (HTTPS-style cluster connection)."""
+
+    connector_type: Literal["trino"] = "trino"
     connection_name: str = "default"
     host: str
     port: int = 443
@@ -33,6 +36,25 @@ class TrinoConnectionPayload(BaseModel):
     max_result_rows: int = 10_000
 
     model_config = {"populate_by_name": True}
+
+
+class DuckDBConnectionPayload(BaseModel):
+    """DuckDB embedded connection (in-memory or local file)."""
+
+    connector_type: Literal["duckdb"] = "duckdb"
+    connection_name: str = "default"
+    database: str = ":memory:"
+    read_only: bool = False
+    working_dir: str | None = None
+    max_result_rows: int = 10_000
+
+    model_config = {"populate_by_name": True}
+
+
+# Discriminated union: the connector_type field tells pydantic which payload
+# shape to validate against. Routes that take a "connection" should use this
+# type so they accept both Trino and DuckDB transparently.
+ConnectionPayload = TrinoConnectionPayload | DuckDBConnectionPayload
 
 
 class TestConnectionResponse(BaseModel):
@@ -67,7 +89,7 @@ class ColumnListResponse(BaseModel):
 
 # ----- Query -----------------------------------------------------------------
 class RunQueryRequest(BaseModel):
-    connection: TrinoConnectionPayload
+    connection: ConnectionPayload = Field(discriminator="connector_type")
     sql: str
     limit: int | None = None
     confirm_write: bool = False
@@ -98,7 +120,7 @@ class RunQueryResponse(BaseModel):
 
 
 class ExplainQueryRequest(BaseModel):
-    connection: TrinoConnectionPayload
+    connection: ConnectionPayload = Field(discriminator="connector_type")
     sql: str
 
 

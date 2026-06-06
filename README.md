@@ -109,9 +109,22 @@ See [`docs/deployment.md`](docs/deployment.md) for the full security model.
 
 ---
 
-## Configure Trino
+## Pick a data source
 
-In the UI, click **Configure Trino** in the top bar. Or set defaults in `.env`:
+In the UI top bar, click **Configure connection**.
+
+### Option A: DuckDB (no server, instant)
+
+The default. Pick "DuckDB (no server)" in the dialog. Two modes:
+
+- **In-memory** (`:memory:`) — ephemeral playground. Great for one-off SQL against local files: `SELECT * FROM read_csv_auto('orders.csv') WHERE …`
+- **File** (`./local.duckdb`) — persistent. Use it like a single-user warehouse: `CREATE TABLE customers (…)`, `INSERT …`, etc.
+
+Optionally set a "Working directory" so relative file paths in `read_csv_auto` / `read_parquet` resolve where you expect.
+
+### Option B: Trino HTTPS
+
+For team analytics on real data warehouses. In the UI dialog, fill in host/port/user/password/catalog/schema. Or set defaults in `.env`:
 
 ```env
 TRINO_HOST=trino.example.com
