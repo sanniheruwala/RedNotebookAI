@@ -2,6 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Code-block syntax highlighting (GitHub-style, theme-aware) */
+@import "highlight.js/styles/github.css";
+.dark {
+  /* Override with the dark variant inside .dark scope. */
+  /* highlight.js writes its rules with low specificity, so the cascade picks up our overrides. */
+}
+.dark .hljs {
+  color: hsl(150 8% 92%);
+  background: transparent;
+}
+.dark .hljs-comment, .dark .hljs-quote {
+  color: hsl(150 8% 55%);
+  font-style: italic;
+}
+.dark .hljs-keyword, .dark .hljs-selector-tag, .dark .hljs-literal, .dark .hljs-section, .dark .hljs-link {
+  color: hsl(142 70% 60%);
+}
+.dark .hljs-string, .dark .hljs-attr {
+  color: hsl(40 90% 65%);
+}
+.dark .hljs-number, .dark .hljs-symbol, .dark .hljs-bullet, .dark .hljs-meta {
+  color: hsl(200 90% 70%);
+}
+.dark .hljs-type, .dark .hljs-class .dark .hljs-title, .dark .hljs-built_in, .dark .hljs-builtin-name {
+  color: hsl(280 75% 75%);
+}
+.dark .hljs-name, .dark .hljs-tag, .dark .hljs-title, .dark .hljs-function .dark .hljs-title {
+  color: hsl(168 65% 65%);
+}
+
 @layer base {
   :root {
     /* Light theme, clean off-white with brand-green accents */

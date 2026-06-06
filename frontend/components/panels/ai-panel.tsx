@@ -5,12 +5,11 @@ import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { Loader2, Send, Sparkles } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Kbd } from "@/components/ui/kbd";
+import { Markdown } from "@/components/markdown";
 import { api } from "@/lib/api";
 import { useNotebookStore } from "@/store/notebook-store";
 
@@ -108,9 +107,7 @@ export function AIPanel() {
                   {m.role === "assistant" && <Sparkles className="h-2.5 w-2.5 text-primary" />}
                   {m.role}
                 </div>
-                <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none prose-pre:my-1 prose-pre:rounded-lg prose-pre:bg-muted/60 prose-pre:p-2 prose-code:text-[11px]">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-                </div>
+                <Markdown variant="compact">{m.content}</Markdown>
               </motion.div>
             ))}
           </AnimatePresence>

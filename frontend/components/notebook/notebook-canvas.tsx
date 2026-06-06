@@ -22,17 +22,22 @@ import { CSS } from "@dnd-kit/utilities";
 import { Plus, Sparkles, FileText, BarChart3, BookOpen, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useNotebookStore } from "@/store/notebook-store";
+import {
+  useActiveNotebook,
+  useActiveSelectedCellId,
+  useNotebookStore,
+} from "@/store/notebook-store";
 import { SQLCell } from "@/components/notebook/sql-cell";
 import { MarkdownCell } from "@/components/notebook/markdown-cell";
 import { AIPromptCell } from "@/components/notebook/ai-prompt-cell";
 import type { Cell, CellType } from "@/lib/types";
 
 export function NotebookCanvas() {
-  const cells = useNotebookStore((s) => s.notebook.cells);
+  const notebook = useActiveNotebook();
+  const cells = notebook.cells;
   const addCell = useNotebookStore((s) => s.addCell);
   const reorderCells = useNotebookStore((s) => s.reorderCells);
-  const selectedCellId = useNotebookStore((s) => s.selectedCellId);
+  const selectedCellId = useActiveSelectedCellId();
   const selectCell = useNotebookStore((s) => s.selectCell);
   const moveCell = useNotebookStore((s) => s.moveCell);
   const removeCell = useNotebookStore((s) => s.removeCell);

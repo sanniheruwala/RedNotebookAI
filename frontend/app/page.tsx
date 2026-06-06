@@ -5,6 +5,7 @@ import { Topbar } from "@/components/topbar/topbar";
 import { LeftSidebar } from "@/components/sidebar/left-sidebar";
 import { RightSidebar } from "@/components/panels/right-sidebar";
 import { NotebookCanvas } from "@/components/notebook/notebook-canvas";
+import { NotebookTabs } from "@/components/notebook/notebook-tabs";
 import { CommandPalette } from "@/components/command-palette";
 import { useRequireAuth } from "@/hooks/use-auth";
 
@@ -33,7 +34,12 @@ export default function HomePage() {
       <Topbar />
       <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
         <LeftSidebar />
-        <NotebookCanvas />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <NotebookTabs />
+          <div className="flex flex-1 overflow-hidden">
+            <NotebookCanvas />
+          </div>
+        </div>
         <RightSidebar />
       </div>
       <CommandPalette />

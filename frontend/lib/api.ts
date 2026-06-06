@@ -260,6 +260,9 @@ export const api = {
 
   getNotebook: (id: string) => http<{ notebook: Notebook }>(`/notebooks/${id}`),
 
+  deleteNotebook: (id: string) =>
+    http<{ ok: boolean }>(`/notebooks/${id}`, { method: "DELETE" }),
+
   saveNotebook: (id: string, notebook: Notebook) =>
     http<{ ok: boolean; notebook_id: string; path: string }>(`/notebooks/${id}`, {
       method: "PUT",

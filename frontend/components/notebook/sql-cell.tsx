@@ -25,7 +25,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ResultTabs } from "@/components/notebook/result-tabs";
-import { useNotebookStore } from "@/store/notebook-store";
+import { useActiveCellResult, useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
 import { api } from "@/lib/api";
 import { formatDuration, formatNumber } from "@/lib/utils";
@@ -40,7 +40,7 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   const moveCell = useNotebookStore((s) => s.moveCell);
   const setCellResult = useNotebookStore((s) => s.setCellResult);
   const ingestRunResponse = useNotebookStore((s) => s.ingestRunResponse);
-  const cellResult = useNotebookStore((s) => s.cellResults[cell.id]);
+  const cellResult = useActiveCellResult(cell.id);
   const connection = useConnectionStore((s) => s.connection);
   const { resolvedTheme } = useTheme();
   const [collapsed, setCollapsed] = React.useState(false);

@@ -24,16 +24,33 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandMark } from "@/components/brand-mark";
 import { UserMenu } from "@/components/topbar/user-menu";
-import { useNotebookStore } from "@/store/notebook-store";
+import { useActiveNotebook, useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
+import { useUIStore } from "@/store/ui-store";
 import { api } from "@/lib/api";
 import { ConnectionDialog } from "@/components/sidebar/connection-dialog";
 
 export function Topbar() {
-  const title = useNotebookStore((s) => s.notebook.metadata.title);
+  const notebook = useActiveNotebook();
+  const title = notebook.metadata.title;
   const setTitle = useNotebookStore((s) => s.setTitle);
-  const notebook = useNotebookStore((s) => s.notebook);
   const connection = useConnectionStore((s) => s.connection);
+  const openPalette = useUIStore((s) => s.setCommandPalette);
+
+  const exportNotebook = React.useCallback(() => {
+    const blob = new Blob([JSON.stringify(notebook, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(notebook.metadata.title || "notebook")
+      .toLowerCase()
+      .replace(/\s+/g, "-")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Notebook exported");
+  }, [notebook]);
   const ingestRunResponse = useNotebookStore((s) => s.ingestRunResponse);
   const setCellResult = useNotebookStore((s) => s.setCellResult);
 
@@ -69,6 +86,28 @@ export function Topbar() {
     onSuccess: () => toast.success("All cells executed"),
     onError: (err: Error) => toast.error(err.message),
   });
+
+  // Global keyboard shortcuts mirroring the topbar tooltips.
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inEditor = target?.closest(".monaco-editor");
+      const isMod = e.metaKey || e.ctrlKey;
+      if (isMod && !e.shiftKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        saveMutation.mutate();
+      } else if (isMod && e.shiftKey && e.key === "Enter") {
+        e.preventDefault();
+        runAllMutation.mutate();
+      } else if (isMod && !e.shiftKey && e.key.toLowerCase() === "e" && !inEditor) {
+        e.preventDefault();
+        exportNotebook();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exportNotebook]);
 
   const connected = !!connection?.host;
 
@@ -151,9 +190,19 @@ export function Topbar() {
           </TooltipContent>
         </Tooltip>
 
-        <Button size="sm" variant="ghost" className="gap-1.5">
-          <Download className="h-4 w-4" /> Export
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-1.5"
+              onClick={exportNotebook}
+            >
+              <Download className="h-4 w-4" /> Export
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Download notebook as JSON</TooltipContent>
+        </Tooltip>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
 
@@ -168,7 +217,12 @@ export function Topbar() {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button size="icon" variant="ghost" aria-label="Command palette">
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Command palette"
+              onClick={() => openPalette(true)}
+            >
               <Sparkles className="h-4 w-4 text-primary" />
             </Button>
           </TooltipTrigger>
@@ -178,9 +232,19 @@ export function Topbar() {
           </TooltipContent>
         </Tooltip>
 
-        <Button size="icon" variant="ghost" aria-label="Settings">
-          <Settings2 className="h-4 w-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="Settings"
+              onClick={() => openPalette(true)}
+            >
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Settings (⌘K)</TooltipContent>
+        </Tooltip>
         <ThemeToggle />
         <UserMenu />
       </div>

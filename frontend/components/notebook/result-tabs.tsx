@@ -5,8 +5,7 @@ import dynamic from "next/dynamic";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Sparkles } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Markdown } from "@/components/markdown";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ChartView } from "@/components/notebook/chart-view";
@@ -74,8 +73,8 @@ export function ResultTabs({ cell, result }: { cell: SQLCell; result: QueryResul
           <Sparkles className="h-4 w-4" /> Summarize result
         </Button>
         {aiSummary && (
-          <div className="prose prose-sm dark:prose-invert max-w-none rounded-xl border bg-card p-4">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiSummary}</ReactMarkdown>
+          <div className="rounded-xl border bg-card p-4">
+            <Markdown variant="cell">{aiSummary}</Markdown>
           </div>
         )}
       </TabsContent>

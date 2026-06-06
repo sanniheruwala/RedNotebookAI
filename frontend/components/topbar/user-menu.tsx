@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { LogOut, ShieldCheck, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { KeyRound, LogOut } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,7 @@ function initials(name: string): string {
 export function UserMenu() {
   const status = useAuthStatus();
   const logout = useLogout();
+  const router = useRouter();
 
   if (!status.data?.auth_enabled) return null;
   const user = status.data.user;
@@ -61,14 +63,12 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2 text-xs" disabled>
-          <User className="h-3.5 w-3.5" /> Profile
+        <DropdownMenuItem
+          className="gap-2 text-xs"
+          onSelect={() => router.push("/settings/tokens")}
+        >
+          <KeyRound className="h-3.5 w-3.5" /> API tokens
         </DropdownMenuItem>
-        {user.is_admin && (
-          <DropdownMenuItem className="gap-2 text-xs" disabled>
-            <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Admin
-          </DropdownMenuItem>
-        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => {

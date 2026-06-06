@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Database, Settings2, Sparkles } from "lucide-react";
+import { Database, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConnectionDialog } from "@/components/sidebar/connection-dialog";
 import { MetadataExplorer } from "@/components/sidebar/metadata-explorer";
+import { NotebooksList } from "@/components/sidebar/notebooks-list";
 import { useConnectionStore } from "@/store/connection-store";
 
 export function LeftSidebar() {
@@ -36,29 +37,25 @@ export function LeftSidebar() {
         </ConnectionDialog>
       </div>
 
-      <div className="border-b bg-muted/20 px-4 py-2 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+      <NotebooksList />
+
+      <div className="border-b border-t bg-muted/20 px-4 py-2 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Metadata
       </div>
       <div className="flex-1 overflow-hidden">
         <MetadataExplorer />
       </div>
 
-      <div className="border-t px-4 py-3">
-        <ConnectionDialog>
-          <Button size="sm" variant="ghost" className="h-8 w-full justify-start gap-2 text-xs">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Discover schemas with AI
-          </Button>
-        </ConnectionDialog>
-        {!connected && (
+      {!connected && (
+        <div className="border-t px-4 py-3">
           <ConnectionDialog>
-            <Button size="sm" variant="default" className="mt-2 h-8 w-full gap-2 text-xs">
+            <Button size="sm" variant="default" className="h-8 w-full gap-2 text-xs">
               <Database className="h-3.5 w-3.5" />
               Configure Trino
             </Button>
           </ConnectionDialog>
-        )}
-      </div>
+        </div>
+      )}
     </aside>
   );
 }
