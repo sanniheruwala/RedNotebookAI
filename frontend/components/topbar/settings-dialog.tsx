@@ -136,6 +136,17 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
             Shortcuts
           </div>
           <div className="grid grid-cols-1 gap-1 text-[11px]">
+            {/* Admin link: visible to admins, and to anyone in single-user
+                mode (since the synthetic default user is admin). */}
+            {(!auth.data?.auth_enabled || auth.data?.user?.is_admin) && (
+              <Link
+                href="/settings/admin"
+                onClick={() => onOpenChange(false)}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-foreground hover:bg-accent"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Admin settings
+              </Link>
+            )}
             <Link
               href="/settings/tokens"
               onClick={() => onOpenChange(false)}

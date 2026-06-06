@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useNotebookStore, useActiveNotebook } from "@/store/notebook-store";
 import { useUIStore } from "@/store/ui-store";
-import { useLogout } from "@/hooks/use-auth";
+import { useAuthStatus, useLogout } from "@/hooks/use-auth";
 
 export function CommandPalette() {
   const open = useUIStore((s) => s.commandPaletteOpen);
@@ -19,6 +19,10 @@ export function CommandPalette() {
   const { setTheme, resolvedTheme } = useTheme();
   const router = useRouter();
   const logout = useLogout();
+  const auth = useAuthStatus();
+  // Admin entry is visible when auth is disabled (local mode -> default user
+  // is admin) OR when the signed-in user has the admin role.
+  const canAdmin = !auth.data?.auth_enabled || !!auth.data?.user?.is_admin;
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -103,17 +107,29 @@ export function CommandPalette() {
               </CmdItem>
             </Command.Group>
             <Command.Group heading="Account">
+              {canAdmin && (
+                <CmdItem
+                  onSelect={() => {
+                    router.push("/settings/admin");
+                    close();
+                  }}
+                >
+                  Open admin settings
+                </CmdItem>
+              )}
               <CmdItem onSelect={() => { router.push("/settings/tokens"); close(); }}>
                 Manage API tokens
               </CmdItem>
-              <CmdItem
-                onSelect={() => {
-                  close();
-                  void logout();
-                }}
-              >
-                Sign out
-              </CmdItem>
+              {auth.data?.auth_enabled && (
+                <CmdItem
+                  onSelect={() => {
+                    close();
+                    void logout();
+                  }}
+                >
+                  Sign out
+                </CmdItem>
+              )}
             </Command.Group>
           </Command.List>
         </Command>

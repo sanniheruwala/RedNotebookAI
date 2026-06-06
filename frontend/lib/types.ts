@@ -53,6 +53,19 @@ export type AIRuntimeConfig = {
   available_providers: string[];
 };
 
+export type SavedConnection = {
+  id: string;
+  name: string;
+  connector_type: "trino" | "duckdb";
+  host: string;
+  catalog: string | null;
+  schema_name: string | null;
+  created_at: string;
+  updated_at: string;
+  last_tested_at: string | null;
+  last_test_ok: boolean | null;
+};
+
 export type AuditEvent = {
   ts: string;
   action: string;

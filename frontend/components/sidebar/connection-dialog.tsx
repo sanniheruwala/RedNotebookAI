@@ -1,9 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CheckCircle2, Database, Loader2, XCircle, Zap } from "lucide-react";
+import {
+  CheckCircle2,
+  Cloud,
+  Database,
+  Loader2,
+  Save,
+  Trash2,
+  Upload,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +34,15 @@ import {
   useConnectionStore,
 } from "@/store/connection-store";
 import { api } from "@/lib/api";
-import type { Connection, DuckDBConnection, TrinoConnection } from "@/lib/types";
+import { useAuthStatus } from "@/hooks/use-auth";
+import { connectionLabel } from "@/lib/connection";
+import type {
+  Connection,
+  DuckDBConnection,
+  SavedConnection,
+  TrinoConnection,
+} from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 
 export function ConnectionDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
@@ -56,6 +74,54 @@ export function ConnectionDialog({ children }: { children: React.ReactNode }) {
 
   const draft: Connection = activeType === "duckdb" ? duckdb : trino;
 
+  // ----- Server-stored connections (only available with auth) -----------
+  const auth = useAuthStatus();
+  const qc = useQueryClient();
+  const serverStorageOn = !!auth.data?.auth_enabled;
+
+  const saved = useQuery({
+    queryKey: ["saved-connections"],
+    queryFn: api.listSavedConnections,
+    enabled: open && serverStorageOn,
+  });
+
+  const persist = useMutation({
+    mutationFn: () =>
+      api.createSavedConnection({
+        name: draft.connection_name || "Untitled connection",
+        config: draft,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["saved-connections"] });
+      toast.success("Saved to your connections");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const loadFromServer = useMutation({
+    mutationFn: (id: string) => api.loadSavedConnection(id),
+    onSuccess: (cfg) => {
+      if (cfg.connector_type === "duckdb") {
+        setDuckdb(cfg);
+        setActiveType("duckdb");
+      } else {
+        setTrino(cfg);
+        setActiveType("trino");
+      }
+      toast.success("Loaded");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const removeFromServer = useMutation({
+    mutationFn: (id: string) => api.deleteSavedConnection(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["saved-connections"] });
+      toast.success("Removed");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const testMutation = useMutation({
     mutationFn: () => api.testConnection(draft),
     onSuccess: (res) => {
@@ -85,6 +151,22 @@ export function ConnectionDialog({ children }: { children: React.ReactNode }) {
             multi-user mode connections are stored server-side and admin-only.
           </DialogDescription>
         </DialogHeader>
+
+        {serverStorageOn && (
+          <SavedConnectionsPanel
+            saved={saved.data ?? []}
+            loading={saved.isPending}
+            onLoad={(id) => loadFromServer.mutate(id)}
+            onDelete={(id) => {
+              if (window.confirm("Delete this saved connection?")) {
+                removeFromServer.mutate(id);
+              }
+            }}
+            loadingId={
+              loadFromServer.isPending ? loadFromServer.variables ?? null : null
+            }
+          />
+        )}
 
         <Tabs
           value={activeType}
@@ -121,12 +203,123 @@ export function ConnectionDialog({ children }: { children: React.ReactNode }) {
             ) : testMutation.data && !testMutation.data.ok ? (
               <XCircle className="h-4 w-4 text-destructive" />
             ) : null}
-            Test connection
+            Test
           </Button>
-          <Button onClick={save}>Save</Button>
+          {serverStorageOn && (
+            <Button
+              variant="outline"
+              onClick={() => persist.mutate()}
+              disabled={persist.isPending}
+              className="gap-1.5"
+            >
+              {persist.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Cloud className="h-4 w-4" />
+              )}
+              Save to my connections
+            </Button>
+          )}
+          <Button onClick={save} className="gap-1.5">
+            <Save className="h-4 w-4" /> Use
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SavedConnectionsPanel({
+  saved,
+  loading,
+  onLoad,
+  onDelete,
+  loadingId,
+}: {
+  saved: SavedConnection[];
+  loading: boolean;
+  onLoad: (id: string) => void;
+  onDelete: (id: string) => void;
+  loadingId: string | null;
+}) {
+  return (
+    <section className="mb-2 rounded-xl border bg-muted/20">
+      <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-1.5">
+        <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <Cloud className="h-3 w-3" /> Your saved connections
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          encrypted on the server
+        </span>
+      </div>
+      {loading && (
+        <div className="p-3 text-xs text-muted-foreground">
+          <Loader2 className="mr-1 inline h-3 w-3 animate-spin" /> Loading…
+        </div>
+      )}
+      {!loading && saved.length === 0 && (
+        <div className="p-3 text-xs text-muted-foreground">
+          None yet. Fill in the form below and click{" "}
+          <span className="font-medium text-foreground">
+            Save to my connections
+          </span>{" "}
+          to add one.
+        </div>
+      )}
+      {!loading &&
+        saved.map((c) => (
+          <div
+            key={c.id}
+            className="flex items-center justify-between gap-2 border-t px-3 py-1.5 first:border-t-0"
+          >
+            <button
+              type="button"
+              onClick={() => onLoad(c.id)}
+              disabled={loadingId === c.id}
+              className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs hover:text-primary"
+            >
+              {c.connector_type === "duckdb" ? (
+                <Zap className="h-3 w-3 text-primary" />
+              ) : (
+                <Database className="h-3 w-3 text-primary" />
+              )}
+              <span className="truncate font-medium">{c.name}</span>
+              <Badge variant="outline" className="ml-auto text-[10px]">
+                {c.connector_type}
+              </Badge>
+              {c.last_tested_at &&
+                (c.last_test_ok ? (
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                ) : (
+                  <XCircle className="h-3 w-3 text-destructive" />
+                ))}
+            </button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={() => onLoad(c.id)}
+              disabled={loadingId === c.id}
+              aria-label="Load"
+            >
+              {loadingId === c.id ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Upload className="h-3 w-3" />
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+              onClick={() => onDelete(c.id)}
+              aria-label="Delete"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        ))}
+    </section>
   );
 }
 

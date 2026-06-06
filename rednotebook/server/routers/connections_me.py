@@ -1,36 +1,34 @@
-"""Server-side connection storage endpoints (encrypted at rest).
+"""Server-side encrypted connection storage (per user).
 
-These live under ``/api/me/connections``. The plaintext password is only
-required at creation time. Subsequent calls reference connections by id;
-the server decrypts on demand and never returns the raw config to the
-client.
+Connections are stored Fernet-encrypted on disk and only decrypted on
+explicit owner request via POST {id}/load. List/update/delete views never
+expose secrets. Supports both Trino and DuckDB via the discriminated
+ConnectionPayload union.
 """
 
 from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import SecretStr
+from pydantic import BaseModel, Field
 
 from rednotebook.auth.models import User
 from rednotebook.connectors.store import ConnectionStore, StoredConnection
-from rednotebook.connectors.trino import TrinoConnectionConfig, TrinoConnector
 from rednotebook.server.dependencies import (
+    build_connector,
     connection_store_dep,
     require_user,
 )
 from rednotebook.server.schemas import (
+    ConnectionPayload,
     TestConnectionResponse,
-    TrinoConnectionPayload,
 )
 
+
 router = APIRouter()
-
-
-# ----- Public-shape connection (no secrets) ----------------------------------
-from pydantic import BaseModel  # noqa: E402
 
 
 class ConnectionPublic(BaseModel):
@@ -63,43 +61,44 @@ class ConnectionPublic(BaseModel):
 
 class CreateConnectionRequest(BaseModel):
     name: str
-    config: TrinoConnectionPayload
+    config: ConnectionPayload = Field(discriminator="connector_type")
 
 
 class UpdateConnectionRequest(BaseModel):
     name: str | None = None
-    config: TrinoConnectionPayload | None = None
+    config: ConnectionPayload | None = Field(default=None, discriminator="connector_type")
 
 
 # ----- Helpers ---------------------------------------------------------------
-def _build_connector(payload: TrinoConnectionPayload) -> TrinoConnector:
-    cfg = TrinoConnectionConfig(
-        connection_name=payload.connection_name,
-        connector_type="trino",
-        host=payload.host,
-        port=payload.port,
-        scheme=payload.scheme,
-        user=payload.user,
-        password=SecretStr(payload.password) if payload.password else None,
-        catalog=payload.catalog,
-        schema=payload.schema_name,
-        http_headers=payload.http_headers,
-        session_properties=payload.session_properties,
-        verify_ssl=payload.verify_ssl,
-        ca_certificate_path=payload.ca_certificate_path,
-        source=payload.source,
-        timezone=payload.timezone,
-        query_timeout_seconds=payload.query_timeout_seconds,
-        max_preview_rows=payload.max_preview_rows,
-        max_result_rows=payload.max_result_rows,
-    )
-    return TrinoConnector(cfg)
+def _summary_from_payload(payload: ConnectionPayload) -> dict[str, Any]:
+    """Pull the non-secret summary fields we want to expose in listings."""
+    if payload.connector_type == "duckdb":
+        return {
+            "host": payload.database,  # repurpose: "host" column shows db path
+            "catalog": None,
+            "schema_name": None,
+        }
+    return {
+        "host": payload.host,
+        "catalog": payload.catalog,
+        "schema_name": payload.schema_name,
+    }
 
 
 def _payload_from_record(
     record: StoredConnection, store: ConnectionStore
-) -> TrinoConnectionPayload:
+) -> ConnectionPayload:
+    """Decrypt the stored config and re-validate as a discriminated union."""
     raw = store.decrypt_config(record)
+    # Backfill connector_type for legacy entries that pre-date the union.
+    raw.setdefault("connector_type", record.connector_type or "trino")
+    from rednotebook.server.schemas import (
+        DuckDBConnectionPayload,
+        TrinoConnectionPayload,
+    )
+
+    if raw["connector_type"] == "duckdb":
+        return DuckDBConnectionPayload.model_validate(raw)
     return TrinoConnectionPayload.model_validate(raw)
 
 
@@ -118,14 +117,15 @@ def create_connection(
     user: User = Depends(require_user),
     store: ConnectionStore = Depends(connection_store_dep),
 ) -> ConnectionPublic:
+    summary = _summary_from_payload(payload.config)
     record = store.add(
         user_id=user.id,
         name=payload.name.strip() or "Untitled connection",
-        connector_type="trino",
+        connector_type=payload.config.connector_type,
         config=payload.config.model_dump(mode="json"),
-        host=payload.config.host,
-        catalog=payload.config.catalog,
-        schema_name=payload.config.schema_name,
+        host=summary["host"],
+        catalog=summary["catalog"],
+        schema_name=summary["schema_name"],
     )
     return ConnectionPublic.from_record(record)
 
@@ -137,15 +137,18 @@ def update_connection(
     user: User = Depends(require_user),
     store: ConnectionStore = Depends(connection_store_dep),
 ) -> ConnectionPublic:
+    summary = (
+        _summary_from_payload(payload.config) if payload.config else {}
+    )
     try:
         updated = store.update(
             user.id,
             connection_id,
             name=payload.name,
             config=payload.config.model_dump(mode="json") if payload.config else None,
-            host=payload.config.host if payload.config else None,
-            catalog=payload.config.catalog if payload.config else None,
-            schema_name=payload.config.schema_name if payload.config else None,
+            host=summary.get("host"),
+            catalog=summary.get("catalog"),
+            schema_name=summary.get("schema_name"),
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -163,6 +166,25 @@ def delete_connection(
     return {"ok": True}
 
 
+@router.post("/{connection_id}/load")
+def load_connection(
+    connection_id: str,
+    user: User = Depends(require_user),
+    store: ConnectionStore = Depends(connection_store_dep),
+) -> dict[str, Any]:
+    """Return the decrypted inline config for the owner.
+
+    Used by the UI to populate the connection dialog from a saved
+    connection. Owner-only; the request is authenticated and the
+    encrypted payload only lives on disk.
+    """
+    record = store.get(user.id, connection_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    payload = _payload_from_record(record, store)
+    return payload.model_dump(mode="json")
+
+
 @router.post("/{connection_id}/test", response_model=TestConnectionResponse)
 def test_connection(
     connection_id: str,
@@ -173,7 +195,7 @@ def test_connection(
     if record is None:
         raise HTTPException(status_code=404, detail="Connection not found")
     payload = _payload_from_record(record, store)
-    connector = _build_connector(payload)
+    connector = build_connector(payload)
     started = time.monotonic()
     try:
         ok = connector.test_connection()
@@ -201,3 +223,5 @@ def test_connection(
             message=f"Connection error: {exc}",
             duration_seconds=time.monotonic() - started,
         )
+
+

@@ -4,6 +4,7 @@ import type {
   APITokenPublic,
   AuditEvent,
   AuthStatus,
+  SavedConnection,
   AuthUser,
   ChartConfig,
   ChartSuggestion,
@@ -116,6 +117,31 @@ export const api = {
     }),
   revokeApiToken: (id: string) =>
     http<{ ok: boolean }>(`/me/tokens/${id}`, { method: "DELETE" }),
+
+  // ----- Saved connections (server-side, encrypted) ---------------------
+  listSavedConnections: () => http<SavedConnection[]>("/me/connections"),
+  createSavedConnection: (body: { name: string; config: Connection }) =>
+    http<SavedConnection>("/me/connections", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateSavedConnection: (
+    id: string,
+    body: { name?: string; config?: Connection }
+  ) =>
+    http<SavedConnection>(`/me/connections/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteSavedConnection: (id: string) =>
+    http<{ ok: boolean }>(`/me/connections/${id}`, { method: "DELETE" }),
+  loadSavedConnection: (id: string) =>
+    http<Connection>(`/me/connections/${id}/load`, { method: "POST" }),
+  testSavedConnection: (id: string) =>
+    http<{ ok: boolean; message: string; duration_seconds?: number }>(
+      `/me/connections/${id}/test`,
+      { method: "POST" }
+    ),
 
   testConnection: (conn: Connection) =>
     http<{ ok: boolean; message: string; duration_seconds?: number }>("/connections/test", {
