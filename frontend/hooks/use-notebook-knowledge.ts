@@ -24,6 +24,7 @@ export function useNotebookKnowledge(
   const qc = useQueryClient();
   const getBinding = useKnowledgeStore((s) => s.getBinding);
   const setBinding = useKnowledgeStore((s) => s.setBinding);
+  const clearBinding = useKnowledgeStore((s) => s.clearBinding);
 
   const list = useQuery({
     queryKey: ["knowledge-notebooks"],
@@ -31,16 +32,25 @@ export function useNotebookKnowledge(
   });
 
   const bound = getBinding(notebookId);
-  // Resolve the bound id, falling back to a same-name lookup on the server
-  // (handy after wiping browser storage).
+  // Resolve the bound id. We validate it against the server's known list
+  // (a wiped /data/knowledge on the server would otherwise leave us pointing
+  // at a knowledge notebook id that 404s), then fall back to a same-name
+  // lookup before requiring an explicit ensure().
   const resolvedId = React.useMemo(() => {
-    if (bound) return bound;
+    const knownIds = list.data
+      ? new Set(list.data.notebooks.map((n) => n.id))
+      : null;
+    if (bound && knownIds && !knownIds.has(bound)) {
+      clearBinding(notebookId);
+    } else if (bound) {
+      return bound;
+    }
     const match = list.data?.notebooks.find(
       (n) => n.name === notebookTitle || n.name === `kb: ${notebookTitle}`
     );
     if (match) setBinding(notebookId, match.id);
     return match?.id;
-  }, [bound, list.data, notebookTitle, notebookId, setBinding]);
+  }, [bound, list.data, notebookTitle, notebookId, setBinding, clearBinding]);
 
   const create = useMutation({
     mutationFn: () =>
