@@ -4,7 +4,10 @@ import type { Connection, DuckDBConnection, TrinoConnection } from "@/lib/types"
 
 type ConnectionStore = {
   connection: Connection | null;
+  /** Server-side id of the active saved connection, when one is loaded. */
+  activeConnectionId: string | null;
   setConnection: (c: Connection | null) => void;
+  setActiveConnectionId: (id: string | null) => void;
   selectedCatalog: string | null;
   selectedSchema: string | null;
   selectedTable: string | null;
@@ -48,10 +51,12 @@ export const useConnectionStore = create<ConnectionStore>()(
   persist(
     (set) => ({
       connection: defaultConnection,
+      activeConnectionId: null,
       selectedCatalog: null,
       selectedSchema: null,
       selectedTable: null,
       setConnection: (connection) => set({ connection }),
+      setActiveConnectionId: (id) => set({ activeConnectionId: id }),
       setSelected: ({ catalog, schema, table }) =>
         set((state) => ({
           selectedCatalog: catalog ?? state.selectedCatalog,
@@ -62,17 +67,13 @@ export const useConnectionStore = create<ConnectionStore>()(
     {
       name: "rednotebook-connection",
       // Migrate from the v0 shape (Trino-only, no connector_type field).
-      version: 1,
+      version: 2,
       migrate: (persisted, _version) => {
-        type LegacyState = { connection?: Partial<TrinoConnection> | null } & Record<
-          string,
-          unknown
-        >;
+        type LegacyState = {
+          connection?: Partial<TrinoConnection> | null;
+        } & Record<string, unknown>;
         const state = persisted as LegacyState;
-        if (
-          state?.connection &&
-          !state.connection.connector_type
-        ) {
+        if (state?.connection && !state.connection.connector_type) {
           state.connection = {
             ...defaultTrinoConnection,
             ...state.connection,

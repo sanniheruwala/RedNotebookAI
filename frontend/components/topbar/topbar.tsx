@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   BookMarked,
-  Database,
   Download,
   Loader2,
   Play,
@@ -32,7 +31,7 @@ import { useConnectionStore } from "@/store/connection-store";
 import { useUIStore } from "@/store/ui-store";
 import { api } from "@/lib/api";
 import { connectionLabel, isConfigured } from "@/lib/connection";
-import { ConnectionDialog } from "@/components/sidebar/connection-dialog";
+import { ConnectionPicker } from "@/components/sidebar/connection-picker";
 
 export function Topbar() {
   const notebook = useActiveNotebook();
@@ -273,14 +272,7 @@ export function Topbar() {
 
         <Separator orientation="vertical" className="mx-1 h-6" />
 
-        <ConnectionDialog>
-          <Button size="sm" variant="outline" className="gap-2">
-            <Database className="h-3.5 w-3.5" />
-            <span className="max-w-[14ch] truncate text-xs">
-              {connected ? connLabel : "Configure connection"}
-            </span>
-          </Button>
-        </ConnectionDialog>
+        <ConnectionPicker />
 
         <Tooltip>
           <TooltipTrigger asChild>

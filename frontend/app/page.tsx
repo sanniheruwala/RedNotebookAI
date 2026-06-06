@@ -9,6 +9,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { ResizableSidebar } from "@/components/resizable-sidebar";
 import { KnowledgeDrawer } from "@/components/panels/knowledge-drawer";
 import { useRequireAuth } from "@/hooks/use-auth";
+import { useConnectionMigration } from "@/hooks/use-connection-migration";
 import { useUIStore } from "@/store/ui-store";
 
 export default function HomePage() {
@@ -17,6 +18,14 @@ export default function HomePage() {
   const leftCollapsed = useUIStore((s) => s.leftCollapsed);
   const setLeftWidth = useUIStore((s) => s.setLeftWidth);
   const toggleLeft = useUIStore((s) => s.toggleLeft);
+
+  // First-boot migration of the local Zustand connection cache into the
+  // encrypted server store. Gated on auth resolving (either single-user
+  // mode or successful sign-in) so we don't hit a 401.
+  const migrationReady =
+    !status.isPending &&
+    (!status.data?.auth_enabled || !!status.data?.authenticated);
+  useConnectionMigration(migrationReady);
 
   if (status.isPending) {
     return (
