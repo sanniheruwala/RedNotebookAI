@@ -188,3 +188,10 @@ def audit_log_dep(settings: Settings = Depends(settings_dep)):
     from rednotebook.audit.log import AuditLog
 
     return AuditLog(settings.audit_storage_dir)
+
+
+def runtime_config_dep(settings: Settings = Depends(settings_dep)):
+    """Encrypted runtime config store (admin-set AI keys etc)."""
+    from rednotebook.admin.runtime_config import RuntimeConfigStore
+
+    return RuntimeConfigStore(settings.runtime_config_dir, settings.secret_key)

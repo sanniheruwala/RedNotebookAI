@@ -41,6 +41,30 @@ export function useRequireAuth() {
   return status;
 }
 
+/**
+ * Same as useRequireAuth, but also bounces non-admins to / so /settings/admin/*
+ * pages are only reachable by admin accounts. In single-user laptop mode the
+ * synthetic default user is admin, so this just passes through.
+ */
+export function useRequireAdmin() {
+  const router = useRouter();
+  const status = useAuthStatus();
+
+  React.useEffect(() => {
+    if (!status.data) return;
+    if (!status.data.auth_enabled) return;
+    if (!status.data.authenticated) {
+      router.replace(status.data.is_bootstrap ? "/register" : "/login");
+      return;
+    }
+    if (!status.data.user?.is_admin) {
+      router.replace("/");
+    }
+  }, [status.data, router]);
+
+  return status;
+}
+
 export function useLogout() {
   const router = useRouter();
   const qc = useQueryClient();

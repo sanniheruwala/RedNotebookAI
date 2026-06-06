@@ -38,6 +38,32 @@ export type APITokenCreated = APITokenPublic & { plaintext: string };
 
 export type OAuthProviders = { providers: string[] };
 
+export type AIRuntimeConfig = {
+  ai_provider: string | null;
+  openai_api_key: string | null;
+  openai_model: string | null;
+  anthropic_api_key: string | null;
+  anthropic_model: string | null;
+  ollama_base_url: string | null;
+  ollama_model: string | null;
+  ai_context_mode: string | null;
+  ai_allow_sample_rows: boolean | null;
+  ai_sample_row_limit: number | null;
+  ai_mask_pii: boolean | null;
+  available_providers: string[];
+};
+
+export type AuditEvent = {
+  ts: string;
+  action: string;
+  user_id: string | null;
+  user_email: string | null;
+  ok: boolean;
+  target: string | null;
+  ip: string | null;
+  details: Record<string, unknown>;
+};
+
 export type TrinoConnection = {
   connector_type: "trino";
   connection_name: string;

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, LogOut } from "lucide-react";
+import { KeyRound, LogOut, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +69,14 @@ export function UserMenu() {
         >
           <KeyRound className="h-3.5 w-3.5" /> API tokens
         </DropdownMenuItem>
+        {user.is_admin && (
+          <DropdownMenuItem
+            className="gap-2 text-xs"
+            onSelect={() => router.push("/settings/admin")}
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Admin settings
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => {

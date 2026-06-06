@@ -1,17 +1,19 @@
 import type {
+  AIRuntimeConfig,
   APITokenCreated,
   APITokenPublic,
+  AuditEvent,
   AuthStatus,
   AuthUser,
   ChartConfig,
   ChartSuggestion,
   ColumnInfo,
+  Connection,
   GuardInfo,
   InfographicBrief,
   InvitePublic,
   KnowledgeNotebook,
   KnowledgeSource,
-  Connection,
   Notebook,
   OAuthProviders,
   QueryResultPayload,
@@ -78,6 +80,31 @@ export const api = {
       body: JSON.stringify(body),
     }),
   listInvites: () => http<InvitePublic[]>("/auth/invites"),
+
+  // ----- Admin ---------------------------------------------------------
+  adminListUsers: () => http<AuthUser[]>("/admin/users"),
+  adminListInvites: () => http<InvitePublic[]>("/admin/invites"),
+  adminCreateInvite: (body: { email?: string | null; role?: "admin" | "member" }) =>
+    http<InvitePublic>("/admin/invites", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  adminListAudit: (params?: { limit?: number; action?: string; user_id?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.action) q.set("action", params.action);
+    if (params?.user_id) q.set("user_id", params.user_id);
+    const qs = q.toString();
+    return http<{ events: AuditEvent[] }>(
+      `/admin/audit${qs ? `?${qs}` : ""}`
+    );
+  },
+  adminGetAIConfig: () => http<AIRuntimeConfig>("/admin/config/ai"),
+  adminUpdateAIConfig: (body: Partial<Omit<AIRuntimeConfig, "available_providers">>) =>
+    http<{ ok: boolean }>("/admin/config/ai", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
   oauthProviders: () => http<OAuthProviders>("/auth/oauth/providers"),
 
   // ----- API tokens (personal access) ----------------------------------
