@@ -10,16 +10,20 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
 
 from rednotebook import __version__
 from rednotebook.config.settings import get_settings
 from rednotebook.migrations.auto_namespace import run_namespace_migration
 from rednotebook.server.dependencies import require_user
+from rednotebook.server.rate_limit import limiter, rate_limit_handler
 from rednotebook.server.routers import (
+    admin,
     ai,
     auth,
     charts,
     connections,
+    connections_me,
     health,
     infographics,
     knowledge,
@@ -72,6 +76,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Rate limiting (slowapi). Per-endpoint limits live in the routers.
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
     # Auth-protected dependency. Bypassed when AUTH_ENABLED is false.
     protected = [Depends(require_user)]
 
@@ -82,6 +90,18 @@ def create_app() -> FastAPI:
         me.router,
         prefix="/api/me",
         tags=["me"],
+        dependencies=protected,
+    )
+    app.include_router(
+        connections_me.router,
+        prefix="/api/me/connections",
+        tags=["me/connections"],
+        dependencies=protected,
+    )
+    app.include_router(
+        admin.router,
+        prefix="/api/admin",
+        tags=["admin"],
         dependencies=protected,
     )
     app.include_router(

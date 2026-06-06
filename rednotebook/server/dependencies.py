@@ -148,3 +148,17 @@ def notebook_storage_dep(
 ) -> NotebookStorage:
     base = Path(settings.notebook_storage_dir) / user.id
     return NotebookStorage(base)
+
+
+def connection_store_dep(settings: Settings = Depends(settings_dep)):
+    """Return a shared, encrypted ConnectionStore for the current user."""
+    from rednotebook.connectors.store import ConnectionStore
+
+    return ConnectionStore(settings.connection_storage_dir, settings.secret_key)
+
+
+def audit_log_dep(settings: Settings = Depends(settings_dep)):
+    """Return a shared AuditLog for write access from request handlers."""
+    from rednotebook.audit.log import AuditLog
+
+    return AuditLog(settings.audit_storage_dir)

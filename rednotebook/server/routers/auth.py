@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field
 
+from rednotebook.audit.log import AuditEvent, AuditLog
 from rednotebook.auth.models import (
     AuthProvider,
     InviteToken,
@@ -28,10 +29,12 @@ from rednotebook.auth.sessions import (
 from rednotebook.auth.store import UserStore
 from rednotebook.config.settings import Settings
 from rednotebook.server.dependencies import (
+    audit_log_dep,
     require_user,
     settings_dep,
     user_store_dep,
 )
+from rednotebook.server.rate_limit import limiter
 
 router = APIRouter()
 
@@ -105,11 +108,14 @@ def _clear_session_cookie(response: Response) -> None:
 
 # ----- Endpoints --------------------------------------------------------------
 @router.post("/login")
+@limiter.limit("10/minute")
 def login(
+    request: Request,
     payload: LoginRequest,
     response: Response,
     settings: Settings = Depends(settings_dep),
     store: UserStore = Depends(user_store_dep),
+    audit: AuditLog = Depends(audit_log_dep),
 ) -> dict[str, object]:
     if not settings.auth_enabled:
         raise HTTPException(
@@ -123,6 +129,14 @@ def login(
         or user.provider is not AuthProvider.LOCAL
         or not verify_password(payload.password, user.password_hash or "")
     ):
+        audit.record(
+            AuditEvent(
+                action="auth.login_failed",
+                ok=False,
+                user_email=payload.email,
+                ip=request.client.host if request.client else None,
+            )
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -134,15 +148,26 @@ def login(
     )
     _set_session_cookie(response, token, settings)
     store.update_user(user.model_copy(update={"last_login_at": datetime.now(UTC)}))
+    audit.record(
+        AuditEvent(
+            action="auth.login",
+            user_id=user.id,
+            user_email=user.email,
+            ip=request.client.host if request.client else None,
+        )
+    )
     return {"ok": True, "user": UserPublic.from_user(user).model_dump()}
 
 
 @router.post("/register")
+@limiter.limit("5/minute")
 def register(
+    request: Request,
     payload: RegisterRequest,
     response: Response,
     settings: Settings = Depends(settings_dep),
     store: UserStore = Depends(user_store_dep),
+    audit: AuditLog = Depends(audit_log_dep),
 ) -> dict[str, object]:
     if not settings.auth_enabled:
         raise HTTPException(status_code=404, detail="Auth is disabled")
@@ -200,6 +225,15 @@ def register(
         ttl_seconds=settings.session_ttl_seconds,
     )
     _set_session_cookie(response, token, settings)
+    audit.record(
+        AuditEvent(
+            action="auth.register",
+            user_id=user.id,
+            user_email=user.email,
+            details={"role": user.role.value, "bootstrap": is_bootstrap},
+            ip=request.client.host if request.client else None,
+        )
+    )
     return {
         "ok": True,
         "user": UserPublic.from_user(user).model_dump(),

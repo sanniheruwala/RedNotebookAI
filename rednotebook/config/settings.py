@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     # Auth
     auth_enabled: bool = False
     auth_storage_dir: str = "local_data/auth"
+    connection_storage_dir: str = "local_data/connections"
+    audit_storage_dir: str = "local_data/audit"
     secret_key: str = "change-me-in-production-use-a-long-random-string"
     session_ttl_seconds: int = 60 * 60 * 24 * 7
     cookie_secure: bool = False  # set True behind HTTPS reverse proxy

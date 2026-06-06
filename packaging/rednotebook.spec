@@ -7,12 +7,24 @@ Run from the repository root with the Next.js export already built at
     pyinstaller packaging/rednotebook.spec --noconfirm
 """
 
+import sys as _sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.utils.hooks import collect_submodules
 
 repo_root = Path(SPECPATH).resolve().parent
 static_frontend = repo_root / "frontend" / "out"
-logo = repo_root / "frontend" / "public" / "logo.png"
+logo_png = repo_root / "frontend" / "public" / "logo.png"
+
+# PyInstaller expects .icns on macOS and .ico on Windows. We don't ship those
+# yet, so only set an icon when the right file is present.
+icon_icns = repo_root / "packaging" / "icon.icns"
+icon_ico = repo_root / "packaging" / "icon.ico"
+if _sys.platform == "darwin" and icon_icns.exists():
+    icon_path = str(icon_icns)
+elif _sys.platform.startswith("win") and icon_ico.exists():
+    icon_path = str(icon_ico)
+else:
+    icon_path = None
 
 # Bundle the entire app package and every router so dynamic imports survive
 # the freeze.
@@ -24,8 +36,8 @@ hidden = (
 datas = []
 if static_frontend.is_dir():
     datas.append((str(static_frontend), "static_frontend"))
-if logo.exists():
-    datas.append((str(logo), "."))
+if logo_png.exists():
+    datas.append((str(logo_png), "."))
 
 block_cipher = None
 
@@ -59,7 +71,7 @@ exe = EXE(
     strip=False,
     upx=False,
     console=False,
-    icon=str(logo) if logo.exists() else None,
+    icon=icon_path,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -81,7 +93,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="RedNotebook AI.app",
-    icon=str(logo) if logo.exists() else None,
+    icon=icon_path,
     bundle_identifier="in.redanalytica.rednotebookai",
     info_plist={
         "CFBundleName": "RedNotebook AI",
