@@ -93,11 +93,31 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
           <Row label="Version" value={health.data?.version ?? "…"} />
           <Row
             label="AI provider"
-            value={
-              <Badge variant="outline" className="rounded-md font-mono text-[10px]">
-                {health.data?.ai_provider ?? "…"}
-              </Badge>
-            }
+            value={(() => {
+              const configured = health.data?.ai_provider;
+              const active = health.data?.ai_provider_active ?? "…";
+              const mismatched =
+                configured && configured !== "mock" && active === "mock";
+              return (
+                <span className="flex items-center gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className={`rounded-md font-mono text-[10px] ${
+                      mismatched
+                        ? "border-destructive/40 text-destructive"
+                        : ""
+                    }`}
+                  >
+                    {active}
+                  </Badge>
+                  {mismatched && (
+                    <span className="text-[10px] text-destructive">
+                      (configured: {configured}, fell back)
+                    </span>
+                  )}
+                </span>
+              );
+            })()}
           />
           <Row
             label="Authentication"

@@ -48,34 +48,50 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
 
   const [draft, setDraft] = React.useState(cell.prompt ?? "");
 
-  const setMessages = (next: AIChatMessage[]) => {
+  // Always reach into the *latest* cell state via the updateCell callback
+  // form. The previous version snapshotted `messages` in render-time
+  // closures and re-added a stale user message in onSuccess, which
+  // surfaced as a duplicate / wrong-content user bubble.
+  const appendMessage = React.useCallback(
+    (msg: AIChatMessage) => {
+      updateCell(cell.id, (c) =>
+        c.cell_type === "ai_prompt"
+          ? { ...c, prompt: "", messages: [...(c.messages ?? []), msg] }
+          : c
+      );
+    },
+    [cell.id, updateCell]
+  );
+
+  const popLastMessage = React.useCallback(() => {
     updateCell(cell.id, (c) =>
-      c.cell_type === "ai_prompt" ? { ...c, messages: next, prompt: "" } : c
+      c.cell_type === "ai_prompt"
+        ? { ...c, messages: (c.messages ?? []).slice(0, -1) }
+        : c
     );
-  };
+  }, [cell.id, updateCell]);
 
   const ask = useMutation({
     mutationFn: (question: string) =>
       api.aiGenerateSQL({ prompt: question, context: { history: messages } }),
     onMutate: (question) => {
-      setMessages([...messages, { role: "user", content: question }]);
+      appendMessage({ role: "user", content: question });
       setDraft("");
     },
     onSuccess: (res) => {
-      setMessages([
-        ...messages,
-        { role: "user", content: lastUser(messages, draft) },
-        {
-          role: "assistant",
-          content: res.sql,
-          suggested_sql: res.sql,
-          provider: res.provider,
-        },
-      ]);
+      // onMutate already appended the user message — just append the
+      // assistant reply here.
+      appendMessage({
+        role: "assistant",
+        content: res.sql,
+        suggested_sql: res.sql,
+        provider: res.provider,
+      });
     },
     onError: (err: Error) => {
-      // Roll back the optimistic user message
-      setMessages(messages);
+      // Roll back the optimistic user message so the input isn't lost
+      // visually if the API failed.
+      popLastMessage();
       toast.error(err.message);
     },
   });
@@ -193,15 +209,6 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
       </div>
     </div>
   );
-}
-
-function lastUser(prev: AIChatMessage[], _fallback: string): string {
-  // Returns the most recent user message — used when reconciling state after
-  // the optimistic onMutate fired before the API resolved.
-  for (let i = prev.length - 1; i >= 0; i--) {
-    if (prev[i].role === "user") return prev[i].content;
-  }
-  return prev[prev.length - 1]?.content ?? "";
 }
 
 function ThinkingBubble() {

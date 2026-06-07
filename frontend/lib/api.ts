@@ -54,7 +54,13 @@ async function http<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  health: () => http<{ ok: boolean; version: string; ai_provider: string }>("/health"),
+  health: () =>
+    http<{
+      ok: boolean;
+      version: string;
+      ai_provider: string;
+      ai_provider_active: string;
+    }>("/health"),
 
   // ----- Auth ------------------------------------------------------------
   authStatus: () => http<AuthStatus>("/auth/status"),
@@ -102,10 +108,10 @@ export const api = {
   },
   adminGetAIConfig: () => http<AIRuntimeConfig>("/admin/config/ai"),
   adminUpdateAIConfig: (body: Partial<Omit<AIRuntimeConfig, "available_providers">>) =>
-    http<{ ok: boolean }>("/admin/config/ai", {
-      method: "PUT",
-      body: JSON.stringify(body),
-    }),
+    http<{ ok: boolean; auto_switched_provider: string | null }>(
+      "/admin/config/ai",
+      { method: "PUT", body: JSON.stringify(body) }
+    ),
   oauthProviders: () => http<OAuthProviders>("/auth/oauth/providers"),
 
   // ----- API tokens (personal access) ----------------------------------

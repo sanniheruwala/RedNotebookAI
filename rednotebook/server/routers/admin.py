@@ -81,8 +81,15 @@ def update_ai_config(
     store: RuntimeConfigStore = Depends(runtime_config_dep),
     audit: AuditLog = Depends(audit_log_dep),
     admin: User = Depends(require_admin),
-) -> dict[str, bool]:
-    """Set / clear admin AI overrides. Sending null on a field clears it."""
+) -> dict[str, bool | str | None]:
+    """Set / clear admin AI overrides. Sending null on a field clears it.
+
+    "Do what I mean" wiring: if the admin just supplied a key for a
+    provider and hasn't already picked an active provider override, the
+    matching provider becomes active. Otherwise an OpenAI key sitting
+    next to an empty selector silently routes every AI call to the mock
+    provider — which was the v0.7.5–0.7.7 trap.
+    """
     current = store.get("ai", {}) or {}
     incoming = payload.model_dump(exclude_unset=True)
     # Preserve existing secret when the admin sends back the masked value.
@@ -93,6 +100,27 @@ def update_ai_config(
                 # Looks like a masked round-trip; keep the existing value.
                 incoming[secret_field] = current.get(secret_field)
     merged = {**current, **incoming}
+
+    # Auto-switch provider if (a) a real key was just supplied for a
+    # specific provider and (b) no provider override is currently active.
+    # Keep this implicit only when the field is empty — never override a
+    # provider the admin already picked.
+    auto_switched: str | None = None
+    if not merged.get("ai_provider"):
+        provider_for_key: dict[str, str] = {
+            "anthropic_api_key": "anthropic",
+            "openai_api_key": "openai",
+        }
+        for key_field, provider_name in provider_for_key.items():
+            if (
+                key_field in incoming
+                and isinstance(incoming[key_field], str)
+                and incoming[key_field]
+            ):
+                merged["ai_provider"] = provider_name
+                auto_switched = provider_name
+                break
+
     # Drop None values so unsets actually unset.
     merged = {k: v for k, v in merged.items() if v is not None and v != ""}
     store.set("ai", merged)
@@ -101,10 +129,13 @@ def update_ai_config(
             action="admin.update_ai_config",
             user_id=admin.id,
             user_email=admin.email,
-            details={"fields": sorted(incoming.keys())},
+            details={
+                "fields": sorted(incoming.keys()),
+                "auto_switched_provider": auto_switched,
+            },
         )
     )
-    return {"ok": True}
+    return {"ok": True, "auto_switched_provider": auto_switched}
 
 
 # ----- Audit log -------------------------------------------------------------

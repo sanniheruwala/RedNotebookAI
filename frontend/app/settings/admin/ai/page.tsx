@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { KeyRound, Loader2, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,11 +19,43 @@ const CONTEXT_MODES = [
   { value: "schema_stats_samples", label: "Schema + stats + sample rows" },
 ];
 
+// Suggested models shown in the dropdown next to each provider's model
+// field. The field is editable so admins can still type a model name
+// the SDK supports but we don't list. Keep these lists short and
+// curated — exhaustive enumerations rot fast as providers ship new
+// models.
+const OPENAI_MODELS = [
+  { value: "gpt-4o", label: "gpt-4o — flagship, multimodal" },
+  { value: "gpt-4o-mini", label: "gpt-4o-mini — fast, cheap" },
+  { value: "gpt-4-turbo", label: "gpt-4-turbo" },
+  { value: "o1-preview", label: "o1-preview — reasoning" },
+  { value: "o1-mini", label: "o1-mini — reasoning, faster" },
+  { value: "gpt-3.5-turbo", label: "gpt-3.5-turbo — legacy" },
+];
+
+const ANTHROPIC_MODELS = [
+  { value: "claude-opus-4-7", label: "claude-opus-4-7 — most capable" },
+  { value: "claude-sonnet-4-6", label: "claude-sonnet-4-6 — best coding" },
+  {
+    value: "claude-haiku-4-5-20251001",
+    label: "claude-haiku-4-5-20251001 — fast, cheap",
+  },
+  { value: "claude-3-7-sonnet-latest", label: "claude-3-7-sonnet-latest" },
+  { value: "claude-3-5-sonnet-latest", label: "claude-3-5-sonnet-latest" },
+  { value: "claude-3-5-haiku-latest", label: "claude-3-5-haiku-latest" },
+];
+
 export default function AdminAIPage() {
   const qc = useQueryClient();
   const config = useQuery({
     queryKey: ["admin-ai-config"],
     queryFn: api.adminGetAIConfig,
+  });
+  const health = useQuery({
+    queryKey: ["health"],
+    queryFn: api.health,
+    // Refresh after save so the "active provider" badge reflects reality.
+    staleTime: 0,
   });
 
   const [draft, setDraft] = React.useState<Partial<AIRuntimeConfig>>({});
@@ -49,10 +81,16 @@ export default function AdminAIPage() {
       );
       return api.adminUpdateAIConfig(body);
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["admin-ai-config"] });
       qc.invalidateQueries({ queryKey: ["health"] });
-      toast.success("AI configuration saved");
+      if (res?.auto_switched_provider) {
+        toast.success(
+          `Saved — active provider set to '${res.auto_switched_provider}'`
+        );
+      } else {
+        toast.success("AI configuration saved");
+      }
       setDraft({});
     },
     onError: (err: Error) =>
@@ -89,6 +127,11 @@ export default function AdminAIPage() {
         </div>
       </header>
 
+      <ActiveProviderBanner
+        configured={view.ai_provider ?? "(.env default)"}
+        active={health.data?.ai_provider_active ?? "…"}
+      />
+
       <section className="card-premium space-y-3 p-5">
         <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Provider
@@ -109,6 +152,11 @@ export default function AdminAIPage() {
               </option>
             ))}
           </Select>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Save an API key below and we&apos;ll switch this to the matching
+            provider automatically. Pick a value here if you want to be
+            explicit, or to force the mock provider.
+          </p>
         </div>
       </section>
 
@@ -152,10 +200,12 @@ export default function AdminAIPage() {
             </div>
           </Field>
           <Field label="Model" className="col-span-2">
-            <Input
+            <ModelPicker
+              listId="openai-models"
+              options={OPENAI_MODELS}
               placeholder="gpt-4o-mini"
               value={view.openai_model ?? ""}
-              onChange={(e) => set("openai_model", e.target.value || null)}
+              onChange={(v) => set("openai_model", v || null)}
             />
           </Field>
         </div>
@@ -201,10 +251,12 @@ export default function AdminAIPage() {
             </div>
           </Field>
           <Field label="Model" className="col-span-2">
-            <Input
+            <ModelPicker
+              listId="anthropic-models"
+              options={ANTHROPIC_MODELS}
               placeholder="claude-sonnet-4-6"
               value={view.anthropic_model ?? ""}
-              onChange={(e) => set("anthropic_model", e.target.value || null)}
+              onChange={(v) => set("anthropic_model", v || null)}
             />
           </Field>
         </div>
@@ -304,6 +356,96 @@ function Field({
     <div className={`space-y-1 ${className ?? ""}`}>
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function ModelPicker({
+  listId,
+  options,
+  value,
+  placeholder,
+  onChange,
+}: {
+  listId: string;
+  options: { value: string; label: string }[];
+  value: string;
+  placeholder: string;
+  onChange: (next: string) => void;
+}) {
+  // Native datalist gives admins a curated dropdown of the top recent
+  // models while still letting them type a custom model the SDK
+  // accepts (e.g. a fine-tune, a model we haven't listed yet, an
+  // alias). Keeps a single source of truth — the input value — and
+  // doesn't pull in a heavier Combobox dependency.
+  return (
+    <>
+      <Input
+        list={listId}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <datalist id={listId}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </datalist>
+    </>
+  );
+}
+
+function ActiveProviderBanner({
+  configured,
+  active,
+}: {
+  configured: string;
+  active: string;
+}) {
+  // The configured provider is what the admin picked (or null = .env
+  // default). The active provider is what's actually wired after init.
+  // They diverge when the configured one can't be loaded — e.g. missing
+  // SDK / bad key — and we silently fall back to the mock. Surfacing
+  // the gap here saves another round of "AI seems to be not working".
+  const isMockActive = active === "mock";
+  const isMockConfigured =
+    configured === "mock" || configured === "(.env default)";
+  const mismatchedToMock = isMockActive && !isMockConfigured;
+  return (
+    <div
+      className={`flex items-start gap-3 rounded-xl border p-3 text-xs ${
+        mismatchedToMock
+          ? "border-destructive/40 bg-destructive/10 text-destructive"
+          : isMockActive
+            ? "border-border bg-muted/30 text-muted-foreground"
+            : "border-primary/30 bg-primary/[0.05] text-primary"
+      }`}
+    >
+      {mismatchedToMock ? (
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+      ) : (
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+      )}
+      <div className="min-w-0 space-y-0.5">
+        <div className="font-semibold">
+          Active AI provider: <span className="font-mono">{active}</span>
+        </div>
+        {mismatchedToMock ? (
+          <div className="leading-relaxed">
+            Configured as <span className="font-mono">{configured}</span>, but
+            instantiation failed — check that the API key is valid. Falling
+            back to the deterministic mock provider.
+          </div>
+        ) : (
+          <div className="leading-relaxed">
+            Configured as <span className="font-mono">{configured}</span>. All
+            AI requests across notebooks, charts, knowledge, and Ask AI use
+            this provider.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

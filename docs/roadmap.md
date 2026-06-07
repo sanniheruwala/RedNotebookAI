@@ -32,6 +32,13 @@
        Summarize result / Generate infographic) and a warning log when
        a configured provider falls back to mock so the failure surfaces
        in server logs (v0.7.7).
+- ✅ "Do what I mean" provider switching: saving an OpenAI / Anthropic
+       key auto-sets the active provider when none was picked. Active
+       vs configured provider surfaced in the admin AI page banner and
+       the settings dialog so the silent-fallback case is visible.
+       Model name is a curated dropdown (top recent models) with
+       free-text fallback. Ask AI cell no longer duplicates the user
+       message after the assistant reply lands (v0.7.8).
 - 🟡 Server-side query cancellation via query-id tracking (DuckDB
        `interrupt()`, Trino `cancel()`, Postgres `pg_cancel_backend`).
 - 🟡 Better profiling (histograms, mutual-info hints)
