@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from rednotebook.ai.base import AIContext
+from rednotebook.ai.errors import AIProviderError
 from rednotebook.ai.registry import get_provider
 from rednotebook.config.settings import get_settings
 from rednotebook.knowledge.models import KnowledgeSource, SourceType
@@ -162,7 +163,14 @@ def chat(
         "SOURCES:\n\n" + "\n\n---\n\n".join(chunks)
     )
     context = AIContext()
-    answer = provider.explain_sql(grounded_prompt, context)
+    try:
+        answer = provider.explain_sql(grounded_prompt, context)
+    except AIProviderError as exc:
+        model = f" / {exc.model}" if exc.model else ""
+        raise HTTPException(
+            status_code=502,
+            detail=f"{exc.provider}{model}: {exc}",
+        ) from exc
     return KnowledgeChatResponse(
         answer=answer,
         provider=provider.name,

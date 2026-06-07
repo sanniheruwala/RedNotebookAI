@@ -112,6 +112,14 @@ export const api = {
       "/admin/config/ai",
       { method: "PUT", body: JSON.stringify(body) }
     ),
+  adminTestAIConfig: () =>
+    http<{
+      ok: boolean;
+      provider: string;
+      model: string | null;
+      sample: string | null;
+      error: string | null;
+    }>("/admin/config/ai/test", { method: "POST" }),
   oauthProviders: () => http<OAuthProviders>("/auth/oauth/providers"),
 
   // ----- API tokens (personal access) ----------------------------------

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from rednotebook.ai.base import DataFrameSchema
+from rednotebook.ai.errors import AIProviderError
+from rednotebook.ai.registry import get_provider
 from rednotebook.connectors.base import QueryResult
 from rednotebook.server.schemas import (
     ChartBuildRequest,
@@ -13,7 +15,6 @@ from rednotebook.server.schemas import (
     ChartSuggestResponse,
 )
 from rednotebook.visualization.charts import build_chart_spec
-from rednotebook.visualization.recommender import recommend_chart
 
 router = APIRouter()
 
@@ -24,7 +25,19 @@ def suggest(request: ChartSuggestRequest) -> ChartSuggestResponse:
         columns=[{"name": c.name, "data_type": c.data_type} for c in request.columns],
         row_count=request.row_count,
     )
-    suggestion = recommend_chart(schema, request.sample_rows)
+    # Delegate to the active provider so a configured LLM actually drives
+    # auto-suggest. Each provider (anthropic / openai / mock) implements
+    # its own suggest_chart and falls back to the deterministic recommender
+    # when the model returns something unparseable.
+    provider = get_provider()
+    try:
+        suggestion = provider.suggest_chart(schema, request.sample_rows)
+    except AIProviderError as exc:
+        model = f" / {exc.model}" if exc.model else ""
+        raise HTTPException(
+            status_code=502,
+            detail=f"{exc.provider}{model}: {exc}",
+        ) from exc
     return ChartSuggestResponse(suggestion=suggestion)
 
 

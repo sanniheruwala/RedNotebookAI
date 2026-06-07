@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Save, TestTube2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -100,6 +100,24 @@ export default function AdminAIPage() {
   const clearSecret = (
     field: "openai_api_key" | "anthropic_api_key"
   ) => set(field, null);
+
+  const test = useMutation({
+    mutationFn: api.adminTestAIConfig,
+    onSuccess: (res) => {
+      if (res.ok) {
+        toast.success(
+          `Provider OK — ${res.provider}${res.model ? ` / ${res.model}` : ""}`,
+          { description: res.sample ?? undefined, duration: 8000 }
+        );
+      } else {
+        toast.error(`Provider check failed`, {
+          description: res.error ?? "Unknown error",
+          duration: 12000,
+        });
+      }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   if (config.isPending) {
     return (
@@ -325,7 +343,20 @@ export default function AdminAIPage() {
         </div>
       </section>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={() => test.mutate()}
+          disabled={test.isPending}
+          className="gap-1.5"
+        >
+          {test.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <TestTube2 className="h-4 w-4" />
+          )}
+          {test.isPending ? "Testing…" : "Test connection"}
+        </Button>
         <Button
           onClick={() => save.mutate()}
           disabled={save.isPending || Object.keys(draft).length === 0}

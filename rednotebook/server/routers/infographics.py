@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 
 from rednotebook.ai.base import DataFrameSchema, InfographicContext
+from rednotebook.ai.errors import AIProviderError
 from rednotebook.ai.registry import get_provider
 from rednotebook.config.settings import get_settings
 from rednotebook.knowledge.models import Infographic
@@ -50,7 +51,14 @@ def generate(
         sample_rows=request.sample_rows if settings.ai_allow_sample_rows else [],
         notes=request.notes,
     )
-    brief = provider.generate_infographic_brief(context)
+    try:
+        brief = provider.generate_infographic_brief(context)
+    except AIProviderError as exc:
+        model = f" / {exc.model}" if exc.model else ""
+        raise HTTPException(
+            status_code=502,
+            detail=f"{exc.provider}{model}: {exc}",
+        ) from exc
     html_doc = render_infographic_html(brief, template=request.template)
 
     export_path: str | None = None

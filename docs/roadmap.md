@@ -39,6 +39,15 @@
        Model name is a curated dropdown (top recent models) with
        free-text fallback. Ask AI cell no longer duplicates the user
        message after the assistant reply lands (v0.7.8).
+- ✅ AI providers raise real errors instead of pretending the request
+       succeeded with mock output. Chart Auto-suggest now actually
+       calls the LLM (the route was hardcoded to the deterministic
+       recommender). Admin AI page gained a "Test connection" button
+       that probes the provider with a trivial prompt and surfaces
+       the exact provider/model/error string. Every AI surface
+       (Explain, Optimize, Ask AI, Knowledge chat, Summarize result,
+       Generate infographic, Chart auto-suggest) now goes through the
+       configured provider end-to-end (v0.7.9).
 - 🟡 Server-side query cancellation via query-id tracking (DuckDB
        `interrupt()`, Trino `cancel()`, Postgres `pg_cancel_backend`).
 - 🟡 Better profiling (histograms, mutual-info hints)

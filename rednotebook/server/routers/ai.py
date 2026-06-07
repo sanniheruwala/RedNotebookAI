@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from rednotebook.ai.base import DataFrameSchema, ResultContext
 from rednotebook.ai.context_builder import build_ai_context
+from rednotebook.ai.errors import AIProviderError
 from rednotebook.ai.registry import get_provider
 from rednotebook.config.settings import get_settings
 from rednotebook.server.schemas import (
@@ -33,25 +34,39 @@ def _to_context(payload: AIContextPayload):  # type: ignore[no-untyped-def]
     )
 
 
+def _provider_error_detail(exc: AIProviderError) -> str:
+    model = f" / {exc.model}" if exc.model else ""
+    return f"{exc.provider}{model}: {exc}"
+
+
 @router.post("/generate-sql", response_model=AIGenerateSQLResponse)
 def generate_sql(request: AIGenerateSQLRequest) -> AIGenerateSQLResponse:
     provider = get_provider()
     context = _to_context(request.context)
-    sql = provider.generate_sql(request.prompt, context)
+    try:
+        sql = provider.generate_sql(request.prompt, context)
+    except AIProviderError as exc:
+        raise HTTPException(status_code=502, detail=_provider_error_detail(exc)) from exc
     return AIGenerateSQLResponse(sql=sql, provider=provider.name)
 
 
 @router.post("/explain-sql", response_model=AITextResponse)
 def explain_sql(request: AIExplainSQLRequest) -> AITextResponse:
     provider = get_provider()
-    text = provider.explain_sql(request.sql, _to_context(request.context))
+    try:
+        text = provider.explain_sql(request.sql, _to_context(request.context))
+    except AIProviderError as exc:
+        raise HTTPException(status_code=502, detail=_provider_error_detail(exc)) from exc
     return AITextResponse(text=text, provider=provider.name)
 
 
 @router.post("/optimize-sql", response_model=AITextResponse)
 def optimize_sql(request: AIOptimizeSQLRequest) -> AITextResponse:
     provider = get_provider()
-    text = provider.optimize_sql(request.sql, _to_context(request.context))
+    try:
+        text = provider.optimize_sql(request.sql, _to_context(request.context))
+    except AIProviderError as exc:
+        raise HTTPException(status_code=502, detail=_provider_error_detail(exc)) from exc
     return AITextResponse(text=text, provider=provider.name)
 
 
@@ -69,5 +84,8 @@ def explain_result(request: AIExplainResultRequest) -> AITextResponse:
         aggregated_stats=request.aggregated_stats,
         sample_rows=request.sample_rows if settings.ai_allow_sample_rows else [],
     )
-    text = provider.summarize_result(context)
+    try:
+        text = provider.summarize_result(context)
+    except AIProviderError as exc:
+        raise HTTPException(status_code=502, detail=_provider_error_detail(exc)) from exc
     return AITextResponse(text=text, provider=provider.name)

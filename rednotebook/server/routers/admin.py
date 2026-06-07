@@ -52,6 +52,61 @@ def _mask_secret(value: str | None) -> str | None:
     return value[:4] + "•" * 8 + value[-4:]
 
 
+@router.post("/config/ai/test")
+def test_ai_config(
+    _admin: User = Depends(require_admin),
+) -> dict[str, Any]:
+    """Probe the configured AI provider with a trivial prompt.
+
+    Lets the admin verify a key + model combo from the UI instead of
+    discovering the failure later via Explain / Optimize / Ask AI etc.
+    Returns ``{ok, provider, model, sample, error}``.
+    """
+    from rednotebook.ai.base import AIContext
+    from rednotebook.ai.errors import AIProviderError
+    from rednotebook.ai.registry import get_provider, resolve_settings
+
+    settings = resolve_settings()
+    provider = get_provider(settings)
+    model_attr = getattr(provider, "_model", None)
+    if provider.name == "mock":
+        return {
+            "ok": False,
+            "provider": "mock",
+            "model": None,
+            "sample": None,
+            "error": (
+                "Current provider is 'mock'. Save an API key (and pick a "
+                "provider above) to test a real AI."
+            ),
+        }
+    try:
+        text = provider.explain_sql("SELECT 1", AIContext())
+    except AIProviderError as exc:
+        return {
+            "ok": False,
+            "provider": exc.provider,
+            "model": exc.model,
+            "sample": None,
+            "error": str(exc),
+        }
+    except Exception as exc:  # pragma: no cover - defensive
+        return {
+            "ok": False,
+            "provider": provider.name,
+            "model": model_attr,
+            "sample": None,
+            "error": f"Unexpected error: {exc}",
+        }
+    return {
+        "ok": True,
+        "provider": provider.name,
+        "model": model_attr,
+        "sample": text[:200],
+        "error": None,
+    }
+
+
 @router.get("/config/ai")
 def get_ai_config(
     store: RuntimeConfigStore = Depends(runtime_config_dep),
