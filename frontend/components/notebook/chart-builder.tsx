@@ -4,11 +4,6 @@ import * as React from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Loader2, Wand2 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { api } from "@/lib/api";
 import type { ChartConfig, QueryResultPayload } from "@/lib/types";
 
 const CHART_TYPES = [
@@ -37,35 +32,6 @@ export function ChartBuilder({
   onChange: (next: ChartConfig) => void;
 }) {
   const columnNames = result.columns.map((c) => c.name);
-
-  const suggestToastId = "chart-auto-suggest";
-  const suggest = useMutation({
-    mutationFn: () =>
-      api.chartSuggest({
-        columns: result.columns,
-        sample_rows: result.rows.slice(0, 20),
-        row_count: result.row_count,
-      }),
-    onMutate: () => {
-      toast.loading("AI is picking the best chart for this result…", {
-        id: suggestToastId,
-      });
-    },
-    onSuccess: (res) => {
-      const s = res.suggestion;
-      onChange({
-        ...config,
-        chart_type: s.chart_type,
-        x: s.x ?? null,
-        y: (Array.isArray(s.y) ? s.y[0] : s.y) ?? null,
-        color: s.color ?? null,
-        aggregation: s.aggregation ?? null,
-        title: s.title ?? config.title ?? null,
-      });
-      toast.success(`Suggested: ${s.chart_type}`, { id: suggestToastId });
-    },
-    onError: (err: Error) => toast.error(err.message, { id: suggestToastId }),
-  });
 
   return (
     <div className="grid grid-cols-2 gap-3 rounded-xl border bg-muted/20 p-3 md:grid-cols-4">
@@ -101,25 +67,9 @@ export function ChartBuilder({
           <option value="count">count</option>
         </Select>
       </Field>
-      <Field label="Title" className="col-span-2">
+      <Field label="Title" className="col-span-2 md:col-span-4">
         <Input value={config.title ?? ""} onChange={(e) => onChange({ ...config, title: e.target.value || null })} />
       </Field>
-      <div className="col-span-2 flex items-end justify-end">
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => suggest.mutate()}
-          disabled={suggest.isPending}
-          className="gap-1.5"
-        >
-          {suggest.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          ) : (
-            <Wand2 className="h-4 w-4" />
-          )}
-          {suggest.isPending ? "Suggesting…" : "Auto-suggest"}
-        </Button>
-      </div>
     </div>
   );
 }

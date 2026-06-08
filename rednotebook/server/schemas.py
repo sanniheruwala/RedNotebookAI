@@ -227,6 +227,20 @@ class ExplainQueryRequest(BaseModel):
 
 
 # ----- AI --------------------------------------------------------------------
+class AIAvailableTable(BaseModel):
+    """A table the user could reasonably reference in a prompt."""
+
+    catalog: str | None = None
+    schema_name: str | None = None
+    name: str
+    columns: list[ColumnInfo] = Field(default_factory=list)
+
+
+class AIChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class AIContextPayload(BaseModel):
     catalog: str | None = None
     schema_name: str | None = None
@@ -235,6 +249,14 @@ class AIContextPayload(BaseModel):
     business_terms: dict[str, str] = Field(default_factory=dict)
     aggregated_stats: dict[str, Any] | None = None
     sample_rows: list[dict[str, Any]] = Field(default_factory=list)
+    # Tables the user can reference in this conversation. Populated by the
+    # frontend from the active connection's metadata so the model can pick
+    # the right one instead of hallucinating identifiers.
+    available_tables: list[AIAvailableTable] = Field(default_factory=list)
+    # Prior turns in this Ask-AI cell, oldest first. Lets the model thread
+    # follow-ups (especially after a clarifying question).
+    history: list[AIChatTurn] = Field(default_factory=list)
+    dialect: str | None = None
 
 
 class AIGenerateSQLRequest(BaseModel):
@@ -243,8 +265,17 @@ class AIGenerateSQLRequest(BaseModel):
 
 
 class AIGenerateSQLResponse(BaseModel):
-    sql: str
+    """Either ``sql`` or ``clarification`` is populated, never both.
+
+    The generator returns a clarifying question instead of SQL when the
+    prompt is ambiguous (e.g. multiple tables match "customers"). The
+    frontend renders this as an assistant question bubble and resends the
+    user's reply with conversation history attached.
+    """
+
+    sql: str = ""
     provider: str
+    clarification: str | None = None
 
 
 class AIExplainSQLRequest(BaseModel):

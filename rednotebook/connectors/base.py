@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import datetime as _dt
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -126,3 +129,48 @@ class BaseConnector(ABC):
     def cancel_query(self, query_id: str) -> bool:  # pragma: no cover - default stub
         """Cancel a running query. Default implementation is a no-op."""
         return False
+
+
+def coerce_row_value(value: Any) -> Any:
+    """Make a raw DB-API value JSON-friendly for the response payload.
+
+    Pydantic v2's JSON serializer accepts strings, numbers, bools, and None
+    natively, but raises a confusing ``SchemaSerializer`` error when it
+    encounters a type it can't introspect (e.g. ``decimal.Decimal``,
+    ``datetime``, ``UUID``, ``bytes``, vendor row objects). That message
+    masks the actual query — particularly painful for ``IS NULL`` style
+    queries where the user assumes the syntax is wrong.
+
+    Cheap, lossless-where-possible coercion: keep primitives as-is,
+    stringify everything else.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        # Python booleans are ints, but isinstance check above keeps them.
+        return value
+    if isinstance(value, Decimal):
+        # int when exact, float otherwise — preserves Pydantic's number
+        # serialization path without losing significant digits for IDs.
+        if value == value.to_integral_value():
+            try:
+                return int(value)
+            except (OverflowError, ValueError):
+                return str(value)
+        return float(value)
+    if isinstance(value, (_dt.datetime, _dt.date, _dt.time)):
+        return value.isoformat()
+    if isinstance(value, _dt.timedelta):
+        return value.total_seconds()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        try:
+            return bytes(value).decode("utf-8")
+        except UnicodeDecodeError:
+            return bytes(value).hex()
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [coerce_row_value(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): coerce_row_value(v) for k, v in value.items()}
+    return str(value)

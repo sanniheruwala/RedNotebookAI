@@ -214,10 +214,13 @@ export const api = {
     http<GuardInfo>(`/query/guard?sql=${encodeURIComponent(sql)}`, { method: "POST" }),
 
   aiGenerateSQL: (body: { prompt: string; context: Record<string, unknown> }) =>
-    http<{ sql: string; provider: string }>("/ai/generate-sql", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
+    http<{ sql: string; provider: string; clarification?: string | null }>(
+      "/ai/generate-sql",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    ),
 
   aiExplainSQL: (body: { sql: string; context: Record<string, unknown> }) =>
     http<{ text: string; provider: string }>("/ai/explain-sql", {

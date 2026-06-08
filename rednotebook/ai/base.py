@@ -23,6 +23,18 @@ class DataFrameSchema(BaseModel):
         return cls(columns=cols, row_count=getattr(result, "row_count", 0))
 
 
+class AIAvailableTableSchema(BaseModel):
+    catalog: str | None = None
+    schema_name: str | None = None
+    name: str
+    columns: list[dict[str, str]] = Field(default_factory=list)
+
+
+class AIChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class AIContext(BaseModel):
     """Context bundle passed to AI methods.
 
@@ -37,6 +49,9 @@ class AIContext(BaseModel):
     sample_rows: list[dict[str, Any]] = Field(default_factory=list)
     aggregated_stats: dict[str, Any] | None = None
     business_terms: dict[str, str] = Field(default_factory=dict)
+    available_tables: list[AIAvailableTableSchema] = Field(default_factory=list)
+    history: list[AIChatTurn] = Field(default_factory=list)
+    dialect: str | None = None
     mode: Literal["schema_only", "schema_and_stats", "schema_stats_samples"] = (
         "schema_and_stats"
     )

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Download, Share2, X } from "lucide-react";
+import { Code2, Download, ImageIcon, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,6 +23,8 @@ type Props = {
   rawHtml?: string;
 };
 
+type View = "designed" | "brief";
+
 export function InfographicModal({
   open,
   onOpenChange,
@@ -31,6 +33,14 @@ export function InfographicModal({
   sourceLabel,
   rawHtml,
 }: Props) {
+  // Default to the rendered HTML so the user immediately sees something
+  // visual instead of the structured brief. Falls back to "brief" when no
+  // HTML is available (e.g. mock provider failed to render).
+  const [view, setView] = React.useState<View>(rawHtml ? "designed" : "brief");
+  React.useEffect(() => {
+    setView(rawHtml ? "designed" : "brief");
+  }, [rawHtml, brief?.title]);
+
   const downloadHtml = () => {
     if (!rawHtml) return;
     const blob = new Blob([rawHtml], { type: "text/html" });
@@ -67,6 +77,26 @@ export function InfographicModal({
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {rawHtml && (
+              <div className="mr-1 inline-flex overflow-hidden rounded-md border">
+                <Button
+                  size="sm"
+                  variant={view === "designed" ? "secondary" : "ghost"}
+                  onClick={() => setView("designed")}
+                  className="h-7 gap-1.5 rounded-none border-0 px-2"
+                >
+                  <ImageIcon className="h-3.5 w-3.5" /> Designed
+                </Button>
+                <Button
+                  size="sm"
+                  variant={view === "brief" ? "secondary" : "ghost"}
+                  onClick={() => setView("brief")}
+                  className="h-7 gap-1.5 rounded-none border-0 px-2"
+                >
+                  <Code2 className="h-3.5 w-3.5" /> Brief
+                </Button>
+              </div>
+            )}
             <Button
               size="sm"
               variant="ghost"
@@ -92,6 +122,17 @@ export function InfographicModal({
           <div className="flex h-full items-center justify-center p-10 text-sm text-muted-foreground">
             No infographic available.
           </div>
+        ) : view === "designed" && rawHtml ? (
+          // Render the backend-generated HTML in a sandboxed iframe so the
+          // user sees the actual designed artifact (not a JSON-looking
+          // brief). srcDoc avoids the document.write path and keeps the
+          // doc fully sandboxed — no cross-origin scripts.
+          <iframe
+            title={brief.title}
+            srcDoc={rawHtml}
+            sandbox="allow-same-origin"
+            className="h-full w-full flex-1 bg-background"
+          />
         ) : (
           <ScrollArea className="scrollbar-thin flex-1">
             <motion.div

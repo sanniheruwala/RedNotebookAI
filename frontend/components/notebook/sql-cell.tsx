@@ -36,6 +36,7 @@ import { formatDuration, formatNumber } from "@/lib/utils";
 import type { SQLCell as SQLCellType } from "@/lib/types";
 
 import type { OnMount } from "@monaco-editor/react";
+import type { editor as MonacoEditorNS } from "monaco-editor";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -56,6 +57,27 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   // Stop button has a stable handle to .abort() on click.
   const abortRef = React.useRef<AbortController | null>(null);
 
+  // Latest Monaco instance, captured on mount. We grab the live selection
+  // at run time so the user can highlight one statement and run *just*
+  // that — common when a cell holds a few exploratory snippets.
+  const editorRef = React.useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(
+    null,
+  );
+  const [hasSelection, setHasSelection] = React.useState(false);
+
+  const resolveSqlToRun = React.useCallback((): string => {
+    const editor = editorRef.current;
+    if (editor) {
+      const model = editor.getModel();
+      const sel = editor.getSelection();
+      if (model && sel && !sel.isEmpty()) {
+        const text = model.getValueInRange(sel).trim();
+        if (text) return text;
+      }
+    }
+    return cell.sql;
+  }, [cell.sql]);
+
   const run = useMutation({
     mutationFn: async () => {
       if (!isConfigured(connection) || !connection) {
@@ -70,7 +92,11 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
         startedAt: Date.now(),
       });
       return api.runQuery(
-        { connection, sql: cell.sql, limit: cell.limit ?? undefined },
+        {
+          connection,
+          sql: resolveSqlToRun(),
+          limit: cell.limit ?? undefined,
+        },
         controller.signal,
       );
     },
@@ -141,8 +167,18 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   }, [run]);
 
   const handleEditorMount: OnMount = React.useCallback((editor, monaco) => {
+    editorRef.current = editor;
     editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => runRef.current());
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current());
+    // Track whether the editor has a non-empty selection so the Run button
+    // can hint "Run selection" — purely cosmetic, the actual decision is
+    // re-checked in resolveSqlToRun at submit time.
+    const updateSelectionState = () => {
+      const sel = editor.getSelection();
+      setHasSelection(!!sel && !sel.isEmpty());
+    };
+    editor.onDidChangeCursorSelection(updateSelectionState);
+    updateSelectionState();
   }, []);
 
   const hasError = !!cellResult?.error;
@@ -345,7 +381,7 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
                       className="gap-1.5 shadow-sm shadow-primary/20"
                     >
                       <Play className="h-4 w-4" />
-                      Run
+                      {hasSelection ? "Run selection" : "Run"}
                     </Button>
                   )}
                 </TooltipTrigger>

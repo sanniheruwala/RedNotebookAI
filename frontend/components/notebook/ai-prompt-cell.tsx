@@ -1,16 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowRight, Loader2, Send, Sparkles, Trash2, User } from "lucide-react";
+import { ArrowRight, HelpCircle, Loader2, Send, Sparkles, Trash2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
 import { useNotebookStore } from "@/store/notebook-store";
+import { useConnectionStore } from "@/store/connection-store";
 import { api } from "@/lib/api";
+import { isConfigured } from "@/lib/connection";
+import { dialectFor, loadAvailableTables } from "@/lib/ai-context";
 import type {
   AIChatMessage,
   AIPromptCell as AIPromptCellType,
@@ -29,6 +32,10 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
   const updateCell = useNotebookStore((s) => s.updateCell);
   const removeCell = useNotebookStore((s) => s.removeCell);
   const addCell = useNotebookStore((s) => s.addCell);
+  const connection = useConnectionStore((s) => s.connection);
+  const selectedCatalog = useConnectionStore((s) => s.selectedCatalog);
+  const selectedSchema = useConnectionStore((s) => s.selectedSchema);
+  const qc = useQueryClient();
 
   const messages = React.useMemo<AIChatMessage[]>(() => {
     if (cell.messages && cell.messages.length > 0) return cell.messages;
@@ -72,15 +79,52 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
   }, [cell.id, updateCell]);
 
   const ask = useMutation({
-    mutationFn: (question: string) =>
-      api.aiGenerateSQL({ prompt: question, context: { history: messages } }),
+    mutationFn: async (question: string) => {
+      const history = messages.map((m) => ({
+        role: m.role,
+        content: m.suggested_sql ?? m.content,
+      }));
+      let availableTables: Awaited<ReturnType<typeof loadAvailableTables>> = [];
+      let dialect: string | undefined;
+      if (isConfigured(connection) && connection) {
+        dialect = dialectFor(connection);
+        try {
+          availableTables = await loadAvailableTables(qc, connection, {
+            catalog: selectedCatalog,
+            schema: selectedSchema,
+          });
+        } catch {
+          // Best-effort: if metadata discovery fails (auth, network), still
+          // send the prompt without schema. The model will degrade by asking
+          // a clarifying question instead of inventing identifiers.
+          availableTables = [];
+        }
+      }
+      return api.aiGenerateSQL({
+        prompt: question,
+        context: {
+          catalog: selectedCatalog,
+          schema_name: selectedSchema,
+          available_tables: availableTables,
+          history,
+          dialect,
+        },
+      });
+    },
     onMutate: (question) => {
       appendMessage({ role: "user", content: question });
       setDraft("");
     },
     onSuccess: (res) => {
-      // onMutate already appended the user message — just append the
-      // assistant reply here.
+      // The backend returns either SQL or a clarifying question — never both.
+      if (res.clarification) {
+        appendMessage({
+          role: "assistant",
+          content: res.clarification,
+          provider: res.provider,
+        });
+        return;
+      }
       appendMessage({
         role: "assistant",
         content: res.sql,
@@ -233,6 +277,7 @@ function ChatBubble({
   onInsert: (sql: string) => void;
 }) {
   const isUser = message.role === "user";
+  const isClarification = !isUser && !message.suggested_sql;
   return (
     <div
       className={`flex items-start gap-2 ${
@@ -243,18 +288,26 @@ function ChatBubble({
         className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md ${
           isUser
             ? "bg-muted text-muted-foreground"
-            : "bg-primary/15 text-primary ring-1 ring-primary/30"
+            : isClarification
+              ? "bg-amber-500/15 text-amber-600 ring-1 ring-amber-500/30 dark:text-amber-400"
+              : "bg-primary/15 text-primary ring-1 ring-primary/30"
         }`}
       >
         {isUser ? (
           <User className="h-3 w-3" />
+        ) : isClarification ? (
+          <HelpCircle className="h-3 w-3" />
         ) : (
           <Sparkles className="h-3 w-3" />
         )}
       </div>
       <div
         className={`min-w-0 max-w-[85%] rounded-lg border p-2.5 text-xs ${
-          isUser ? "border-border bg-muted/40" : "border-border/60 bg-card"
+          isUser
+            ? "border-border bg-muted/40"
+            : isClarification
+              ? "border-amber-500/30 bg-amber-500/5"
+              : "border-border/60 bg-card"
         }`}
       >
         {message.suggested_sql ? (
@@ -282,6 +335,11 @@ function ChatBubble({
           </div>
         ) : (
           <div className="whitespace-pre-wrap break-words leading-relaxed">
+            {isClarification && (
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                Needs clarification
+              </div>
+            )}
             {message.content}
           </div>
         )}

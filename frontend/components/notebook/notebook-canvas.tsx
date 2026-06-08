@@ -99,9 +99,9 @@ export function NotebookCanvas() {
   };
 
   return (
-    <main className="app-mesh relative flex h-full min-w-0 flex-1 flex-col">
-      <ScrollArea className="scrollbar-thin flex-1">
-        <div className="mx-auto w-full space-y-4 px-6 py-6 xl:px-10">
+    <main className="app-mesh relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+      <ScrollArea className="scrollbar-thin min-w-0 flex-1">
+        <div className="mx-auto w-full min-w-0 space-y-4 px-6 py-6 xl:px-10">
           {cells.length === 0 && <EmptyState />}
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -156,7 +156,7 @@ function SortableCell({
       exit={{ opacity: 0, y: -4, scale: 0.98 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       onClick={onSelect}
-      className={`group relative rounded-2xl ${selected ? "ring-brand" : ""}`}
+      className={`group relative min-w-0 rounded-2xl ${selected ? "ring-brand" : ""}`}
     >
       {/* Drag handle. Always laid out (so the cursor doesn't leave its hit box
           mid-hover); visually fades in on cell hover or while dragging. Uses

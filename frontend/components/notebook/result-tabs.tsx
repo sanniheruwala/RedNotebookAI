@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ChartView } from "@/components/notebook/chart-view";
 import { ChartBuilder } from "@/components/notebook/chart-builder";
 import { ProfileView } from "@/components/notebook/profile-view";
+import { computeAggregatedStats } from "@/lib/result-stats";
 
 const ResultTable = dynamic(
   () => import("@/components/notebook/result-table").then((m) => m.ResultTable),
@@ -41,7 +42,7 @@ export function ResultTabs({ cell, result }: { cell: SQLCell; result: QueryResul
         columns: result.columns,
         sample_rows: result.rows.slice(0, 20),
         row_count: result.row_count,
-        aggregated_stats: {},
+        aggregated_stats: computeAggregatedStats(result),
       }),
     onSuccess: (res) => setAiSummary(res.text),
     onError: (err: Error) => toast.error(err.message),

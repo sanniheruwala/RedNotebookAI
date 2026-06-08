@@ -13,6 +13,7 @@ from rednotebook.connectors.base import (
     ConnectionConfig,
     QueryResult,
     TableInfo,
+    coerce_row_value,
 )
 from rednotebook.connectors.registry import register_connector
 
@@ -181,7 +182,10 @@ class TrinoConnector(BaseConnector):
                     truncated = True
                 col_names = [c.name for c in columns]
                 rows = [
-                    {col_names[i]: row[i] for i in range(len(col_names))}
+                    {
+                        col_names[i]: coerce_row_value(row[i])
+                        for i in range(len(col_names))
+                    }
                     for row in fetched
                 ]
             query_id = getattr(cursor, "query_id", None)

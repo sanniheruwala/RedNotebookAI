@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from rednotebook.ai.base import AIContext, DataFrameSchema, ResultContext
+from rednotebook.ai.base import (
+    AIAvailableTableSchema,
+    AIChatTurn,
+    AIContext,
+    DataFrameSchema,
+    ResultContext,
+)
 from rednotebook.config.settings import AIContextMode, Settings, get_settings
 from rednotebook.connectors.base import ColumnInfo, QueryResult
 from rednotebook.profiling.pii_detector import classify_columns
@@ -22,6 +28,9 @@ def build_ai_context(
     sample_rows: list[dict[str, Any]] | None = None,
     aggregated_stats: dict[str, Any] | None = None,
     business_terms: dict[str, str] | None = None,
+    available_tables: list[AIAvailableTableSchema] | None = None,
+    history: list[AIChatTurn] | None = None,
+    dialect: str | None = None,
     mode_override: AIContextMode | None = None,
 ) -> AIContext:
     """Build an AIContext respecting the user's privacy settings."""
@@ -65,6 +74,9 @@ def build_ai_context(
         sample_rows=safe_samples,
         aggregated_stats=stats,
         business_terms=business_terms or {},
+        available_tables=available_tables or [],
+        history=history or [],
+        dialect=dialect,
         mode=mode,
     )
 

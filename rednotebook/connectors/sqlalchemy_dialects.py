@@ -29,6 +29,7 @@ from rednotebook.connectors.base import (
     ConnectionConfig,
     QueryResult,
     TableInfo,
+    coerce_row_value,
 )
 from rednotebook.connectors.registry import register_connector
 
@@ -212,7 +213,7 @@ class SQLAlchemyConnector(BaseConnector):
                 if truncated:
                     rows_raw = rows_raw[:cap]
                 rows = [
-                    {col.name: _coerce(row[i]) for i, col in enumerate(columns)}
+                    {col.name: coerce_row_value(row[i]) for i, col in enumerate(columns)}
                     for row in rows_raw
                 ]
             else:
@@ -230,15 +231,6 @@ class SQLAlchemyConnector(BaseConnector):
     def explain_query(self, sql: str) -> QueryResult:
         # EXPLAIN syntax varies by dialect, so just prefix and run.
         return self.run_query(f"EXPLAIN {sql}")
-
-
-def _coerce(value: Any) -> Any:
-    """Cheap JSON-friendliness pass for SQLAlchemy row values."""
-    if value is None:
-        return None
-    if isinstance(value, (str, int, float, bool)):
-        return value
-    return str(value)
 
 
 # ---------------------------------------------------------------------------
