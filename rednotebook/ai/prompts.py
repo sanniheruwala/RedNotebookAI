@@ -186,7 +186,7 @@ def _format_columns(columns: list[dict[str, str]] | list, max_cols: int = 30) ->
     return ", ".join(out)
 
 
-def format_schema_block(context: "AIContext", max_chars: int = 16_000) -> str:
+def format_schema_block(context: AIContext, max_chars: int = 16_000) -> str:
     """Render the schema portion of the context as scannable plain text.
 
     Lists tables in the order they appear in ``context.available_tables``
@@ -250,7 +250,7 @@ def _short(value) -> str:  # type: ignore[no-untyped-def]
     return s if len(s) <= 40 else s[:37] + "…"
 
 
-def format_history_block(context: "AIContext") -> str:
+def format_history_block(context: AIContext) -> str:
     if not context.history:
         return ""
     lines = ["CONVERSATION HISTORY:"]
@@ -267,7 +267,7 @@ def format_history_block(context: "AIContext") -> str:
     return "\n".join(lines)
 
 
-def format_generate_sql_payload(prompt: str, context: "AIContext") -> str:
+def format_generate_sql_payload(prompt: str, context: AIContext) -> str:
     """Compose the user-message body for ``generate_sql``.
 
     Order is intentional: schema first (the model needs it to ground every
@@ -287,7 +287,7 @@ def format_generate_sql_payload(prompt: str, context: "AIContext") -> str:
     return payload
 
 
-def format_sql_with_context(sql: str, context: "AIContext") -> str:
+def format_sql_with_context(sql: str, context: AIContext) -> str:
     """Compose the user-message body for explain / optimize calls."""
     parts = ["AVAILABLE SCHEMA:", format_schema_block(context, max_chars=12_000)]
     parts += ["", "SQL:", sql.strip()]
