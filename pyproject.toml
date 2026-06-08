@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rednotebook-ai"
-version = "0.7.10"
+version = "0.7.11"
 description = "Open-source AI data notebook for Trino and modern data platforms."
 readme = "README.md"
 license = { text = "Apache-2.0" }

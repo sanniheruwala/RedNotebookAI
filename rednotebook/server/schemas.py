@@ -384,6 +384,11 @@ class InfographicGenerateRequest(BaseModel):
 class InfographicGenerateResponse(BaseModel):
     brief: InfographicBrief
     html: str
+    # Designed SVG infographic as a ``data:image/svg+xml`` URL — usable
+    # directly in <img src="…"> so the chat can embed the result without
+    # opening a popup or rendering JSON.
+    image: str
+    svg: str
     export_path: str | None = None
 
 

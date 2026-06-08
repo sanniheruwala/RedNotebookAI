@@ -20,6 +20,8 @@ from rednotebook.server.schemas import (
 from rednotebook.visualization.infographic import (
     export_infographic,
     render_infographic_html,
+    render_infographic_image_data_url,
+    render_infographic_svg,
 )
 from rednotebook.visualization.templates import list_templates
 
@@ -60,6 +62,12 @@ def generate(
             detail=f"{exc.provider}{model}: {exc}",
         ) from exc
     html_doc = render_infographic_html(brief, template=request.template)
+    svg_doc = render_infographic_svg(
+        brief, template=request.template, source_label=request.title_hint
+    )
+    image_data_url = render_infographic_image_data_url(
+        brief, template=request.template, source_label=request.title_hint
+    )
 
     export_path: str | None = None
     if request.persist and request.notebook_id:
@@ -89,5 +97,7 @@ def generate(
     return InfographicGenerateResponse(
         brief=brief,
         html=html_doc,
+        image=image_data_url,
+        svg=svg_doc,
         export_path=export_path,
     )

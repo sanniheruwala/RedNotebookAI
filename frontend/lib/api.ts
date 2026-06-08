@@ -302,6 +302,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  deleteKnowledgeSource: (notebookId: string, sourceId: string) =>
+    http<{ ok: boolean }>(
+      `/knowledge/notebooks/${notebookId}/sources/${sourceId}`,
+      { method: "DELETE" },
+    ),
+
   generateInfographic: (body: {
     notebook_id?: string | null;
     template: string;
@@ -313,10 +319,16 @@ export const api = {
     notes?: string | null;
     persist?: boolean;
   }) =>
-    http<{ brief: InfographicBrief; html: string; export_path?: string | null }>(
-      "/infographics/generate",
-      { method: "POST", body: JSON.stringify(body) }
-    ),
+    http<{
+      brief: InfographicBrief;
+      html: string;
+      image: string;
+      svg: string;
+      export_path?: string | null;
+    }>("/infographics/generate", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   listInfographicTemplates: () =>
     http<{ templates: Array<{ id: string; title: string; description: string }> }>(

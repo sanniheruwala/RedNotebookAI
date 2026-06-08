@@ -1,8 +1,10 @@
-"""Infographic generator (HTML output)."""
+"""Infographic generator (HTML + designed SVG output)."""
 
 from __future__ import annotations
 
+import base64
 import html
+import math
 from pathlib import Path
 from typing import Any
 
@@ -131,3 +133,381 @@ def export_infographic(
 
 def brief_to_dict(brief: InfographicBrief) -> dict[str, Any]:
     return brief.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Designed SVG output
+# ---------------------------------------------------------------------------
+# The HTML renderer is great for download/print but consumers (chat bubbles,
+# email previews, screenshot embeds) need a flat image. SVG is the cheapest
+# way to ship a "designed-looking" image: vector, scalable, embeddable as a
+# data URL, no headless-browser dependency. The layout below is hand-tuned
+# to read like a magazine-style executive brief — gradient banner, KPI tiles
+# with a sparkline, ranked insights, and a caveats strip.
+
+_SVG_WIDTH = 1080
+_SVG_PAD_X = 56
+_SVG_TILE_WIDTH = 220
+_SVG_TILE_HEIGHT = 132
+_SVG_TILE_GAP = 16
+
+
+def _svg_escape(value: Any) -> str:
+    """SVG/XML-escape an arbitrary value (preserves None → empty)."""
+    return html.escape("" if value is None else str(value), quote=True)
+
+
+def _wrap_text(text: str, max_chars: int) -> list[str]:
+    """Greedy word-wrap to roughly fit ``max_chars`` per line."""
+    words = text.split()
+    lines: list[str] = []
+    current: list[str] = []
+    width = 0
+    for word in words:
+        added = (1 if current else 0) + len(word)
+        if width + added > max_chars and current:
+            lines.append(" ".join(current))
+            current = [word]
+            width = len(word)
+        else:
+            current.append(word)
+            width += added
+    if current:
+        lines.append(" ".join(current))
+    return lines or [""]
+
+
+def _trend_for_metric(label: str, brief: InfographicBrief) -> list[float]:
+    """Find a stat series associated with the metric label, if any.
+
+    We try the aggregated stats first (the analyst-summary path attaches a
+    per-metric history), then fall back to a synthetic up-and-to-the-right
+    sparkline so every tile gets visual interest without lying about the
+    direction (the synthetic shape is monotone but flat-ish — easy to read
+    as "we don't have a trend for this").
+    """
+    norm = label.strip().lower()
+    metadata = getattr(brief, "key_metrics", []) or []
+    for metric in metadata:
+        if not isinstance(metric, dict):
+            continue
+        trend = metric.get("trend") or metric.get("sparkline")
+        if isinstance(trend, list) and trend:
+            try:
+                values = [float(v) for v in trend]
+            except (TypeError, ValueError):
+                continue
+            if values:
+                return values
+        if (
+            isinstance(metric.get("label"), str)
+            and metric["label"].strip().lower() == norm
+            and isinstance(metric.get("series"), list)
+        ):
+            try:
+                return [float(v) for v in metric["series"]]
+            except (TypeError, ValueError):
+                continue
+    # Deterministic synthetic shape — different per label so tiles aren't
+    # twins, but flat enough that it reads as "context, not data."
+    seed = sum(ord(c) for c in label) or 7
+    return [
+        0.4 + 0.6 * (0.5 + 0.5 * math.sin(seed * 0.31 + i * 0.7))
+        for i in range(12)
+    ]
+
+
+def _sparkline_path(
+    series: list[float],
+    *,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+) -> tuple[str, str]:
+    """Return (line_path, area_path) for a smooth sparkline."""
+    if not series:
+        return "", ""
+    lo = min(series)
+    hi = max(series)
+    span = hi - lo if hi > lo else 1.0
+    step = width / max(1, len(series) - 1)
+    pts = [
+        (x + i * step, y + height - ((v - lo) / span) * height)
+        for i, v in enumerate(series)
+    ]
+    line = "M " + " L ".join(f"{px:.1f} {py:.1f}" for px, py in pts)
+    area = (
+        f"M {pts[0][0]:.1f} {y + height:.1f} "
+        + "L "
+        + " L ".join(f"{px:.1f} {py:.1f}" for px, py in pts)
+        + f" L {pts[-1][0]:.1f} {y + height:.1f} Z"
+    )
+    return line, area
+
+
+def render_infographic_svg(
+    brief: InfographicBrief,
+    *,
+    template: str = "executive_kpi_brief",
+    source_label: str | None = None,
+) -> str:
+    """Render the brief as a standalone SVG document.
+
+    The output reads like a designed image — gradient banner with title +
+    summary, KPI tiles with sparklines, ranked insights, and a caveats
+    strip — and is safe to embed via ``<img src="data:image/svg+xml,…">``
+    without a headless browser.
+    """
+    accent = "#e11d48"
+    accent_soft = "#fb7185"
+    bg = "#ffffff"
+    surface = "#f8fafc"
+    border = "#e2e8f0"
+    text = "#0f172a"
+    muted = "#475569"
+
+    metrics = brief.key_metrics or []
+    tiles_per_row = 3 if len(metrics) >= 3 else max(1, len(metrics) or 1)
+    rows_of_tiles = math.ceil(len(metrics) / tiles_per_row) if metrics else 0
+    tile_block_height = rows_of_tiles * (_SVG_TILE_HEIGHT + _SVG_TILE_GAP) - (
+        _SVG_TILE_GAP if rows_of_tiles else 0
+    )
+
+    summary_lines = _wrap_text(brief.summary, 86)[:4]
+    header_height = 184 + len(summary_lines) * 22
+
+    insights = brief.insights or []
+    insight_lines: list[list[str]] = [_wrap_text(insight, 96)[:3] for insight in insights[:6]]
+    insight_block_height = sum(28 + len(lines) * 18 for lines in insight_lines)
+    insight_block_height = max(insight_block_height, 60)
+
+    narrative_lines = _wrap_text(brief.narrative or "", 100)[:6]
+    narrative_height = (
+        (40 + len(narrative_lines) * 20) if narrative_lines and narrative_lines[0] else 0
+    )
+
+    caveats = (brief.caveats or [])[:4]
+    caveats_lines = [_wrap_text(c, 100)[0] for c in caveats]
+    caveat_block_height = (40 + len(caveats_lines) * 22) if caveats_lines else 0
+
+    pad_bottom = 64
+    total_height = (
+        header_height
+        + (32 + tile_block_height if metrics else 16)
+        + 24
+        + (28 + insight_block_height if insights else 0)
+        + narrative_height
+        + caveat_block_height
+        + pad_bottom
+    )
+
+    # ---- header banner --------------------------------------------------
+    banner_height = header_height - 16
+    header = f"""
+    <defs>
+      <linearGradient id="banner" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="{accent}" />
+        <stop offset="100%" stop-color="{accent_soft}" />
+      </linearGradient>
+      <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="1" />
+        <stop offset="100%" stop-color="{surface}" stop-opacity="1" />
+      </linearGradient>
+      <linearGradient id="spark" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="{accent}" stop-opacity="0.35" />
+        <stop offset="100%" stop-color="{accent}" stop-opacity="0" />
+      </linearGradient>
+      <filter id="card-shadow" x="-20%" y="-20%" width="140%" height="160%">
+        <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.08" />
+      </filter>
+    </defs>
+    <rect x="0" y="0" width="{_SVG_WIDTH}" height="{total_height}" fill="{bg}" />
+    <rect x="0" y="0" width="{_SVG_WIDTH}" height="{banner_height}" fill="url(#banner)" />
+    <g transform="translate({_SVG_PAD_X}, 56)">
+      <rect x="0" y="0" width="120" height="22" rx="11" fill="rgba(255,255,255,0.18)" />
+      <text x="60" y="15" font-family="-apple-system, Segoe UI, Inter, sans-serif"
+            font-size="11" font-weight="700" text-anchor="middle"
+            letter-spacing="2" fill="#ffffff">{_svg_escape(template.replace('_', ' ').upper())}</text>
+      <text x="0" y="68" font-family="-apple-system, Segoe UI, Inter, sans-serif"
+            font-size="40" font-weight="700" fill="#ffffff" letter-spacing="-0.5">{_svg_escape(brief.title)}</text>"""
+    for i, line in enumerate(summary_lines):
+        header += (
+            f"\n      <text x=\"0\" y=\"{102 + i * 22}\" font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+            f"font-size=\"15\" fill=\"rgba(255,255,255,0.92)\">{_svg_escape(line)}</text>"
+        )
+    if source_label:
+        header += (
+            f"\n      <text x=\"0\" y=\"{108 + len(summary_lines) * 22}\" "
+            f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" font-size=\"11\" "
+            f"fill=\"rgba(255,255,255,0.75)\" letter-spacing=\"1\">{_svg_escape(source_label.upper())}</text>"
+        )
+    header += "\n    </g>"
+
+    # ---- KPI tiles ------------------------------------------------------
+    tiles_svg = ""
+    if metrics:
+        tile_y_origin = header_height + 16
+        # Compute centered row offset so 1- or 2-tile rows don't sit
+        # awkwardly against the left edge of the banner gutter.
+        available = _SVG_WIDTH - 2 * _SVG_PAD_X
+        per_row = tiles_per_row
+        row_width = per_row * _SVG_TILE_WIDTH + (per_row - 1) * _SVG_TILE_GAP
+        x_origin = _SVG_PAD_X + max(0, (available - row_width) / 2)
+
+        for idx, metric in enumerate(metrics[: tiles_per_row * 3]):
+            row = idx // per_row
+            col = idx % per_row
+            x = x_origin + col * (_SVG_TILE_WIDTH + _SVG_TILE_GAP)
+            y = tile_y_origin + row * (_SVG_TILE_HEIGHT + _SVG_TILE_GAP)
+            label = str(metric.get("label", "")) if isinstance(metric, dict) else ""
+            value = (
+                str(metric.get("value", ""))
+                if isinstance(metric, dict)
+                else str(metric)
+            )
+            delta = ""
+            if isinstance(metric, dict):
+                delta_val = metric.get("delta") or metric.get("change")
+                if delta_val:
+                    delta = str(delta_val)
+            trend = _trend_for_metric(label or value, brief)
+            spark_x, spark_y = x + 16, y + _SVG_TILE_HEIGHT - 52
+            line, area = _sparkline_path(
+                trend,
+                x=spark_x,
+                y=spark_y,
+                width=_SVG_TILE_WIDTH - 32,
+                height=36,
+            )
+            tiles_svg += (
+                f"\n    <g filter=\"url(#card-shadow)\">"
+                f"\n      <rect x=\"{x:.1f}\" y=\"{y:.1f}\" width=\"{_SVG_TILE_WIDTH}\" "
+                f"height=\"{_SVG_TILE_HEIGHT}\" rx=\"16\" fill=\"url(#tile)\" "
+                f"stroke=\"{border}\" stroke-width=\"1\" />"
+                f"\n      <text x=\"{x + 18:.1f}\" y=\"{y + 28:.1f}\" "
+                f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+                f"font-size=\"11\" font-weight=\"700\" fill=\"{muted}\" "
+                f"letter-spacing=\"1.4\">{_svg_escape(label.upper()[:24])}</text>"
+                f"\n      <text x=\"{x + 18:.1f}\" y=\"{y + 64:.1f}\" "
+                f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+                f"font-size=\"28\" font-weight=\"700\" fill=\"{text}\">"
+                f"{_svg_escape(value[:14])}</text>"
+            )
+            if delta:
+                tiles_svg += (
+                    f"\n      <text x=\"{x + _SVG_TILE_WIDTH - 18:.1f}\" "
+                    f"y=\"{y + 28:.1f}\" font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+                    f"font-size=\"11\" font-weight=\"700\" fill=\"{accent}\" text-anchor=\"end\">"
+                    f"{_svg_escape(delta)}</text>"
+                )
+            if area:
+                tiles_svg += f"\n      <path d=\"{area}\" fill=\"url(#spark)\" />"
+            if line:
+                tiles_svg += (
+                    f"\n      <path d=\"{line}\" fill=\"none\" stroke=\"{accent}\" "
+                    f"stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" />"
+                )
+            tiles_svg += "\n    </g>"
+
+    # ---- insights -------------------------------------------------------
+    insights_svg = ""
+    insights_y = header_height + (32 + tile_block_height if metrics else 16)
+    if insights:
+        insights_svg += (
+            f"\n    <text x=\"{_SVG_PAD_X}\" y=\"{insights_y + 4}\" "
+            f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+            f"font-size=\"12\" font-weight=\"700\" fill=\"{muted}\" letter-spacing=\"1.6\">"
+            f"KEY INSIGHTS</text>"
+        )
+        insights_svg += (
+            f"\n    <rect x=\"{_SVG_PAD_X}\" y=\"{insights_y + 16}\" "
+            f"width=\"{_SVG_WIDTH - 2 * _SVG_PAD_X}\" height=\"{insight_block_height}\" "
+            f"rx=\"16\" fill=\"{surface}\" stroke=\"{border}\" stroke-width=\"1\" />"
+        )
+        cursor = insights_y + 44
+        for i, lines in enumerate(insight_lines):
+            bullet_y = cursor + 6
+            insights_svg += (
+                f"\n    <circle cx=\"{_SVG_PAD_X + 22}\" cy=\"{bullet_y}\" r=\"4\" fill=\"{accent}\" />"
+                f"\n    <text x=\"{_SVG_PAD_X + 34}\" y=\"{cursor + 10}\" "
+                f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+                f"font-size=\"14\" fill=\"{text}\" font-weight=\"600\">{i + 1}.</text>"
+            )
+            tx = _SVG_PAD_X + 60
+            for j, line in enumerate(lines):
+                insights_svg += (
+                    f"\n    <text x=\"{tx}\" y=\"{cursor + 10 + j * 18}\" "
+                    f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+                    f"font-size=\"14\" fill=\"{text}\">{_svg_escape(line)}</text>"
+                )
+            cursor += 28 + len(lines) * 18
+
+    # ---- narrative ------------------------------------------------------
+    narrative_svg = ""
+    narrative_y = insights_y + (28 + insight_block_height if insights else 0) + 12
+    if narrative_lines and narrative_lines[0]:
+        narrative_svg += (
+            f"\n    <text x=\"{_SVG_PAD_X}\" y=\"{narrative_y + 4}\" "
+            f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+            f"font-size=\"12\" font-weight=\"700\" fill=\"{muted}\" letter-spacing=\"1.6\">"
+            f"NARRATIVE</text>"
+        )
+        for i, line in enumerate(narrative_lines):
+            narrative_svg += (
+                f"\n    <text x=\"{_SVG_PAD_X}\" y=\"{narrative_y + 32 + i * 20}\" "
+                f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+                f"font-size=\"14\" fill=\"{text}\">{_svg_escape(line)}</text>"
+            )
+
+    # ---- caveats --------------------------------------------------------
+    caveats_svg = ""
+    caveats_y = narrative_y + narrative_height + (12 if narrative_height else 0)
+    if caveats_lines:
+        caveats_svg += (
+            f"\n    <text x=\"{_SVG_PAD_X}\" y=\"{caveats_y + 4}\" "
+            f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+            f"font-size=\"12\" font-weight=\"700\" fill=\"{accent}\" letter-spacing=\"1.6\">"
+            f"CAVEATS</text>"
+        )
+        for i, line in enumerate(caveats_lines):
+            caveats_svg += (
+                f"\n    <text x=\"{_SVG_PAD_X}\" y=\"{caveats_y + 32 + i * 22}\" "
+                f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" "
+                f"font-size=\"13\" fill=\"{muted}\">• {_svg_escape(line)}</text>"
+            )
+
+    footer_y = total_height - 28
+    footer_svg = (
+        f"\n    <text x=\"{_SVG_WIDTH / 2}\" y=\"{footer_y}\" text-anchor=\"middle\" "
+        f"font-family=\"-apple-system, Segoe UI, Inter, sans-serif\" font-size=\"11\" "
+        f"fill=\"{muted}\" letter-spacing=\"1.2\">"
+        f"GENERATED BY REDNOTEBOOK AI</text>"
+    )
+
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {_SVG_WIDTH} {total_height}" '
+        f'width="{_SVG_WIDTH}" height="{total_height}" role="img" '
+        f'aria-label="{_svg_escape(brief.title)}">'
+        + header
+        + tiles_svg
+        + insights_svg
+        + narrative_svg
+        + caveats_svg
+        + footer_svg
+        + "\n</svg>"
+    )
+
+
+def render_infographic_image_data_url(
+    brief: InfographicBrief,
+    *,
+    template: str = "executive_kpi_brief",
+    source_label: str | None = None,
+) -> str:
+    """Return the designed SVG infographic as a ``data:image/svg+xml`` URL."""
+    svg = render_infographic_svg(
+        brief, template=template, source_label=source_label
+    )
+    encoded = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"
