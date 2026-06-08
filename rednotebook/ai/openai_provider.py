@@ -24,6 +24,8 @@ from rednotebook.ai.prompts import (
     SQL_EXPLAIN_SYSTEM,
     SQL_GENERATION_SYSTEM,
     SQL_OPTIMIZE_SYSTEM,
+    format_generate_sql_payload,
+    format_sql_with_context,
 )
 from rednotebook.ai.registry import register_provider
 from rednotebook.config.settings import Settings
@@ -75,13 +77,13 @@ class OpenAIProvider(AIProvider):
         return (response.choices[0].message.content or "").strip()
 
     def generate_sql(self, prompt: str, context: AIContext) -> str:
-        return self._chat(SQL_GENERATION_SYSTEM, _format_user_prompt(prompt, context))
+        return self._chat(SQL_GENERATION_SYSTEM, format_generate_sql_payload(prompt, context))
 
     def explain_sql(self, sql: str, context: AIContext) -> str:
-        return self._chat(SQL_EXPLAIN_SYSTEM, _format_sql_with_context(sql, context))
+        return self._chat(SQL_EXPLAIN_SYSTEM, format_sql_with_context(sql, context))
 
     def optimize_sql(self, sql: str, context: AIContext) -> str:
-        return self._chat(SQL_OPTIMIZE_SYSTEM, _format_sql_with_context(sql, context))
+        return self._chat(SQL_OPTIMIZE_SYSTEM, format_sql_with_context(sql, context))
 
     def suggest_chart(
         self,
@@ -126,14 +128,6 @@ class OpenAIProvider(AIProvider):
         except Exception:
             brief = self._fallback.generate_infographic_brief(context)
             return brief.model_copy(update={"narrative": text})
-
-
-def _format_user_prompt(prompt: str, context: AIContext) -> str:
-    return json.dumps({"prompt": prompt, "context": context.model_dump()}, default=str)[:8000]
-
-
-def _format_sql_with_context(sql: str, context: AIContext) -> str:
-    return json.dumps({"sql": sql, "context": context.model_dump()}, default=str)[:8000]
 
 
 register_provider("openai", OpenAIProvider)

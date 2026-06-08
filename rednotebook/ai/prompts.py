@@ -1,26 +1,76 @@
-"""Prompt templates for AI providers.
+"""Prompt templates and structured payload formatting for AI providers.
 
 These are intentionally plain strings, providers can adapt as needed.
+The helpers at the bottom of the file turn an :class:`AIContext` into a
+human-readable text block — sending the schema as nested JSON inside a
+size-capped envelope reliably loses the table the user asked about, so
+every provider funnels through these formatters instead.
 """
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rednotebook.ai.base import AIContext
+
+# Char budget for the user-content payload sent to the LLM. Conservative
+# enough to fit comfortably in Anthropic / OpenAI 200k context windows
+# while still letting Ollama hosts with smaller contexts work. The
+# formatter degrades gracefully — schema first, then truncates from the
+# tail of the table list when the budget is exhausted.
+USER_PAYLOAD_MAX_CHARS = 24_000
+
 SQL_GENERATION_SYSTEM = (
-    "You are RedNotebook AI's SQL assistant. Generate read-only, ANSI-compatible "
-    "SQL using the table and column information provided in the context. Never "
-    "produce destructive statements (INSERT/UPDATE/DELETE/DROP/...).\n\n"
-    "Rules:\n"
-    "1. Only reference tables and columns that appear in context.available_tables "
-    "or context.columns. Never invent identifiers.\n"
-    "2. Qualify identifiers with the schema when more than one table shares the "
-    "same name in different schemas.\n"
-    "3. If the request is ambiguous — multiple plausible tables, an unclear "
-    "column, an undefined metric, a missing date range — DO NOT guess. Return "
-    "exactly one line of the form:\n"
-    "   CLARIFY: <one short question that resolves the ambiguity>\n"
-    "Otherwise return ONLY the SQL (no prose, no markdown fences, no commentary).\n"
-    "4. Treat the conversation history in context.history as prior turns; the "
-    "user's latest message takes precedence."
+    "You are RedNotebook AI's SQL assistant. Your job is to generate the "
+    "single best SQL statement that answers the user's request, using ONLY "
+    "the schema printed in the AVAILABLE SCHEMA section of the user "
+    "message. Never produce destructive statements (INSERT / UPDATE / "
+    "DELETE / DROP / TRUNCATE / ALTER / MERGE / GRANT / REVOKE / CALL / "
+    "EXECUTE).\n\n"
+    "How to choose a table:\n"
+    "  1. The AVAILABLE SCHEMA section lists tables ordered by relevance to "
+    "     the user's prompt — scan the top of the list first. The "
+    "     full qualified name is given (catalog.schema.name).\n"
+    "  2. Match the user's noun ('customers', 'orders', 'subscriptions') "
+    "     against table names, including singular/plural variants and "
+    "     underscored variants ('customer_profile', 'order_items'). Prefer "
+    "     the most canonical (shortest, plainest) match.\n"
+    "  3. When a join is needed, use the obvious foreign-key column "
+    "     conventions you can see in the schema (id, *_id, *_uuid). If a "
+    "     join column isn't visible, say so with CLARIFY rather than "
+    "     guessing.\n\n"
+    "How to write the SQL (complex queries):\n"
+    "  - Use CTEs (WITH …) to layer multi-step logic; one CTE per "
+    "    conceptual step. Avoid pyramid-of-nested-subselects.\n"
+    "  - Always qualify columns when joining ('o.customer_id', not "
+    "    'customer_id').\n"
+    "  - Use window functions (ROW_NUMBER, RANK, LAG, SUM OVER) instead of "
+    "    self-joins when the engine supports them (most modern dialects do).\n"
+    "  - Apply filters as early as possible; aggregate after filtering.\n"
+    "  - Handle NULLs explicitly (COALESCE, IS NULL, NULLIF) when totals / "
+    "    rates depend on them.\n"
+    "  - Cast strings to dates with the dialect's preferred function "
+    "    (DATE() / TO_DATE() / CAST(… AS DATE) — pick the one that matches "
+    "    context.dialect).\n"
+    "  - Add LIMIT only when the user asked for a top-N preview; never for "
+    "    aggregations the user wants in full.\n"
+    "  - Format for humans: uppercase keywords, one column per line in "
+    "    SELECT, indent CTE bodies. Add a single short comment on top "
+    "    summarising what the query returns.\n\n"
+    "Ambiguity rule:\n"
+    "  - If multiple plausible tables match (e.g. 'users' vs 'user_profiles'), "
+    "    a metric is undefined (revenue net or gross?), a time range is "
+    "    missing (last 30 days? current month?), or a join column isn't "
+    "    obvious — DO NOT guess. Return exactly one line:\n"
+    "        CLARIFY: <one short question>\n"
+    "  - Use CLARIFY at most once per turn. The user will reply and you "
+    "    will get another shot.\n\n"
+    "Output rule:\n"
+    "  - Otherwise return ONLY the SQL (no prose, no markdown fences, no "
+    "    'Here is the query', no JSON, no commentary).\n"
+    "  - Treat CONVERSATION HISTORY as prior turns; the user's latest "
+    "    message takes precedence."
 )
 
 SQL_EXPLAIN_SYSTEM = (
@@ -106,3 +156,142 @@ CHART_SUGGESTION_SYSTEM = (
     "line, bar, stacked_bar, area, scatter, pie, donut, heatmap, histogram, "
     "box, time_series, kpi, table."
 )
+
+
+# ---------------------------------------------------------------------------
+# Structured payload formatters
+# ---------------------------------------------------------------------------
+def _qualify(catalog: str | None, schema: str | None, name: str) -> str:
+    parts = [p for p in (catalog, schema, name) if p]
+    return ".".join(parts)
+
+
+def _format_columns(columns: list[dict[str, str]] | list, max_cols: int = 30) -> str:
+    if not columns:
+        return ""
+    out: list[str] = []
+    for col in columns[:max_cols]:
+        if isinstance(col, dict):
+            name = str(col.get("name", ""))
+            dtype = str(col.get("data_type", "")).strip()
+        else:
+            name = str(getattr(col, "name", ""))
+            dtype = str(getattr(col, "data_type", "")).strip()
+        if not name:
+            continue
+        out.append(f"{name} {dtype}".strip())
+    extra = len(columns) - max_cols
+    if extra > 0:
+        out.append(f"… +{extra} more columns")
+    return ", ".join(out)
+
+
+def format_schema_block(context: "AIContext", max_chars: int = 16_000) -> str:
+    """Render the schema portion of the context as scannable plain text.
+
+    Lists tables in the order they appear in ``context.available_tables``
+    (the frontend ranks by prompt relevance), with one fully-qualified
+    table per line and an inline column summary. Falls back to the active
+    table's columns when no candidate list is provided. Caps total output
+    at ``max_chars`` so the schema can't crowd out the user request.
+    """
+    lines: list[str] = []
+    used = 0
+
+    def add(line: str) -> bool:
+        nonlocal used
+        if used + len(line) + 1 > max_chars:
+            return False
+        lines.append(line)
+        used += len(line) + 1
+        return True
+
+    if context.dialect:
+        add(f"Dialect: {context.dialect}")
+    if context.catalog or context.schema_name:
+        scope = ".".join(p for p in (context.catalog, context.schema_name) if p)
+        add(f"Active scope: {scope}")
+
+    tables = context.available_tables or []
+    if tables:
+        add(f"\nAvailable tables (top {len(tables)}, ranked by relevance):")
+        for t in tables:
+            qual = _qualify(t.catalog, t.schema_name, t.name)
+            cols = _format_columns(t.columns)
+            line = f"- {qual}" + (f"  ({cols})" if cols else "")
+            if not add(line):
+                add("- … (additional tables omitted — ask CLARIFY to inspect more)")
+                break
+    elif context.schemas:
+        add("\nColumns in the active table:")
+        for col in context.schemas[:60]:
+            name = col.get("name", "")
+            dtype = col.get("data_type", "")
+            nullable = col.get("nullable", True)
+            add(f"  - {name} {dtype}{'' if nullable else ' NOT NULL'}")
+
+    if context.business_terms:
+        add("\nBusiness glossary:")
+        for k, v in list(context.business_terms.items())[:20]:
+            add(f"  - {k}: {v}")
+
+    if context.sample_rows:
+        add("\nSample rows (privacy-safe subset):")
+        for row in context.sample_rows[:5]:
+            kv = ", ".join(f"{k}={_short(v)}" for k, v in list(row.items())[:8])
+            if not add(f"  - {kv}"):
+                break
+
+    return "\n".join(lines)
+
+
+def _short(value) -> str:  # type: ignore[no-untyped-def]
+    s = "" if value is None else str(value)
+    return s if len(s) <= 40 else s[:37] + "…"
+
+
+def format_history_block(context: "AIContext") -> str:
+    if not context.history:
+        return ""
+    lines = ["CONVERSATION HISTORY:"]
+    for turn in context.history[-12:]:
+        role = (
+            "USER"
+            if getattr(turn, "role", "user") == "user"
+            else "ASSISTANT"
+        )
+        content = (getattr(turn, "content", "") or "").strip()
+        if len(content) > 600:
+            content = content[:580] + "…"
+        lines.append(f"[{role}] {content}")
+    return "\n".join(lines)
+
+
+def format_generate_sql_payload(prompt: str, context: "AIContext") -> str:
+    """Compose the user-message body for ``generate_sql``.
+
+    Order is intentional: schema first (the model needs it to ground every
+    decision), then conversation, then the actual request — the most
+    important instruction is last so it isn't overshadowed by long
+    schemas, which mirrors how the Anthropic / OpenAI chat models attend
+    to prompts in practice.
+    """
+    parts = ["AVAILABLE SCHEMA:", format_schema_block(context, max_chars=18_000)]
+    history = format_history_block(context)
+    if history:
+        parts += ["", history]
+    parts += ["", "USER REQUEST:", prompt.strip()]
+    payload = "\n".join(parts)
+    if len(payload) > USER_PAYLOAD_MAX_CHARS:
+        payload = payload[: USER_PAYLOAD_MAX_CHARS - 64] + "\n\n[truncated]"
+    return payload
+
+
+def format_sql_with_context(sql: str, context: "AIContext") -> str:
+    """Compose the user-message body for explain / optimize calls."""
+    parts = ["AVAILABLE SCHEMA:", format_schema_block(context, max_chars=12_000)]
+    parts += ["", "SQL:", sql.strip()]
+    payload = "\n".join(parts)
+    if len(payload) > USER_PAYLOAD_MAX_CHARS:
+        payload = payload[: USER_PAYLOAD_MAX_CHARS - 64] + "\n\n[truncated]"
+    return payload

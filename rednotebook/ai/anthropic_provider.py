@@ -24,6 +24,8 @@ from rednotebook.ai.prompts import (
     SQL_EXPLAIN_SYSTEM,
     SQL_GENERATION_SYSTEM,
     SQL_OPTIMIZE_SYSTEM,
+    format_generate_sql_payload,
+    format_sql_with_context,
 )
 from rednotebook.ai.registry import register_provider
 from rednotebook.config.settings import Settings
@@ -62,7 +64,11 @@ class AnthropicProvider(AIProvider):
         try:
             response = self._client.messages.create(
                 model=self._model,
-                max_tokens=2048,
+                # Complex CTE + window-function rewrites can easily exceed
+                # the old 2048-token ceiling, leaving the user with a
+                # truncated query that won't parse. 6k gives generous
+                # headroom without inviting the model to ramble.
+                max_tokens=6144,
                 system=system,
                 messages=[{"role": "user", "content": user}],
             )
@@ -86,19 +92,19 @@ class AnthropicProvider(AIProvider):
     def generate_sql(self, prompt: str, context: AIContext) -> str:
         return self._complete(
             SQL_GENERATION_SYSTEM,
-            json.dumps({"prompt": prompt, "context": context.model_dump()}, default=str)[:8000],
+            format_generate_sql_payload(prompt, context),
         )
 
     def explain_sql(self, sql: str, context: AIContext) -> str:
         return self._complete(
             SQL_EXPLAIN_SYSTEM,
-            json.dumps({"sql": sql, "context": context.model_dump()}, default=str)[:8000],
+            format_sql_with_context(sql, context),
         )
 
     def optimize_sql(self, sql: str, context: AIContext) -> str:
         return self._complete(
             SQL_OPTIMIZE_SYSTEM,
-            json.dumps({"sql": sql, "context": context.model_dump()}, default=str)[:8000],
+            format_sql_with_context(sql, context),
         )
 
     def suggest_chart(

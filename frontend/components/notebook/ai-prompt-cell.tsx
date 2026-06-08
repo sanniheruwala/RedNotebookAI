@@ -92,6 +92,14 @@ export function AIPromptCell({ cell }: { cell: AIPromptCellType }) {
           availableTables = await loadAvailableTables(qc, connection, {
             catalog: selectedCatalog,
             schema: selectedSchema,
+            prompt: question,
+            // Recent turns help when the user pivots ("now group by
+            // region") — the schema picker should still find the same
+            // table family.
+            history: history
+              .slice(-6)
+              .map((h) => h.content)
+              .join(" "),
           });
         } catch {
           // Best-effort: if metadata discovery fails (auth, network), still

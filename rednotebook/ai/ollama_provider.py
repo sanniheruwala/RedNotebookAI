@@ -23,6 +23,8 @@ from rednotebook.ai.prompts import (
     SQL_EXPLAIN_SYSTEM,
     SQL_GENERATION_SYSTEM,
     SQL_OPTIMIZE_SYSTEM,
+    format_generate_sql_payload,
+    format_sql_with_context,
 )
 from rednotebook.ai.registry import register_provider
 from rednotebook.config.settings import Settings
@@ -65,15 +67,15 @@ class OllamaProvider(AIProvider):
             return ""
 
     def generate_sql(self, prompt: str, context: AIContext) -> str:
-        text = self._chat(SQL_GENERATION_SYSTEM, _payload(prompt=prompt, context=context))
+        text = self._chat(SQL_GENERATION_SYSTEM, format_generate_sql_payload(prompt, context))
         return text or self._fallback.generate_sql(prompt, context)
 
     def explain_sql(self, sql: str, context: AIContext) -> str:
-        text = self._chat(SQL_EXPLAIN_SYSTEM, _payload(sql=sql, context=context))
+        text = self._chat(SQL_EXPLAIN_SYSTEM, format_sql_with_context(sql, context))
         return text or self._fallback.explain_sql(sql, context)
 
     def optimize_sql(self, sql: str, context: AIContext) -> str:
-        text = self._chat(SQL_OPTIMIZE_SYSTEM, _payload(sql=sql, context=context))
+        text = self._chat(SQL_OPTIMIZE_SYSTEM, format_sql_with_context(sql, context))
         return text or self._fallback.optimize_sql(sql, context)
 
     def suggest_chart(
