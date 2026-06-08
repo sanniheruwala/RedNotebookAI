@@ -95,16 +95,9 @@ export function NotebookKnowledgeBody() {
       for (let i = 0; i < notebook.cells.length; i++) {
         const cell = notebook.cells[i];
         if (cell.cell_type === "sql" && cell.sql.trim()) {
-          const title = `SQL · cell ${i + 1}`;
-          if (!existingTitles.has(`sql_query::${title}`)) {
-            await api.addKnowledgeSource({
-              notebook_id: id,
-              source_type: "sql_query",
-              title,
-              content: cell.sql,
-            });
-            added++;
-          }
+          // Skip capturing the raw SQL — only the materialised result is
+          // useful as grounded context for infographics and chat. The
+          // query text is already visible in the notebook itself.
           const result = cellResults[cell.id]?.result;
           if (result) {
             const resTitle = `Result · cell ${i + 1}`;
@@ -335,19 +328,17 @@ export function NotebookKnowledgeBody() {
                 grounded context.
               </div>
             ) : (
-              <ScrollArea className="max-h-44">
-                <div className="space-y-1 pr-1">
-                  {sources.map((src) => (
-                    <SourceRow
-                      key={src.id}
-                      src={src}
-                      selected={selectedSourceIds.has(src.id)}
-                      onToggle={() => toggleSource(src.id)}
-                      onDelete={() => deleteSource.mutate(src.id)}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
+              <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+                {sources.map((src) => (
+                  <SourceRow
+                    key={src.id}
+                    src={src}
+                    selected={selectedSourceIds.has(src.id)}
+                    onToggle={() => toggleSource(src.id)}
+                    onDelete={() => deleteSource.mutate(src.id)}
+                  />
+                ))}
+              </div>
             )}
             <Button
               size="sm"

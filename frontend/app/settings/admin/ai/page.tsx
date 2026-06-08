@@ -3,8 +3,14 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Save, TestTube2, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, KeyRound, Loader2, Save, TestTube2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -404,27 +410,51 @@ function ModelPicker({
   placeholder: string;
   onChange: (next: string) => void;
 }) {
-  // Native datalist gives admins a curated dropdown of the top recent
-  // models while still letting them type a custom model the SDK
-  // accepts (e.g. a fine-tune, a model we haven't listed yet, an
-  // alias). Keeps a single source of truth — the input value — and
-  // doesn't pull in a heavier Combobox dependency.
+  // Free-text Input + DropdownMenu of curated suggestions. We moved
+  // off <datalist> because browsers filter suggestions to substrings
+  // of the current value — once a model is saved, the dropdown shows
+  // only that one match. The explicit DropdownMenu always lists every
+  // curated model while the input still accepts custom IDs (fine-tunes,
+  // aliases, models we haven't curated yet).
   return (
-    <>
+    <div className="flex gap-1.5">
       <Input
-        list={listId}
+        id={listId}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        className="flex-1"
       />
-      <datalist id={listId}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </datalist>
-    </>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            type="button"
+            aria-label="Pick from curated models"
+            className="shrink-0"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="max-h-72 w-72 overflow-y-auto">
+          {options.map((o) => (
+            <DropdownMenuItem
+              key={o.value}
+              onSelect={() => onChange(o.value)}
+              className="flex items-start gap-2 text-xs"
+            >
+              <Check
+                className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+                  value === o.value ? "opacity-100" : "opacity-0"
+                }`}
+              />
+              <span className="min-w-0 flex-1 whitespace-normal">{o.label}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
