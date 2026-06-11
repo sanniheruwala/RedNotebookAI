@@ -155,14 +155,42 @@ class TrinoConnector(BaseConnector):
         sql = f'SELECT * FROM "{catalog}"."{schema}"."{table}" LIMIT {int(limit)}'
         return self.run_query(sql, limit=limit)
 
-    def run_query(self, sql: str, limit: int | None = None) -> QueryResult:
+    def supports_cancellation(self) -> bool:
+        return True
+
+    def run_query(
+        self,
+        sql: str,
+        limit: int | None = None,
+        *,
+        query_id: str | None = None,
+    ) -> QueryResult:
+        from rednotebook.server.query_registry import get_registry
+
         cap = limit if limit is not None else self._config.max_result_rows
         cap = max(0, int(cap))
         started = time.monotonic()
 
         conn = self._connect()
+        cursor = conn.cursor()
+        # cursor.cancel() is a no-op until execute() has started a query on
+        # the coordinator, so it's safe to register the hook up-front — the
+        # cancel POST may arrive any time after execute() begins blocking
+        # the request thread. The wrapper swallows the post-completion
+        # races where the cursor has already been closed.
+        if query_id:
+            def _cancel() -> None:
+                try:
+                    cursor.cancel()
+                except Exception:
+                    pass
+
+            get_registry().register(
+                query_id,
+                _cancel,
+                label=f"trino:{self._config.host}",
+            )
         try:
-            cursor = conn.cursor()
             cursor.execute(sql)
             description = cursor.description or []
             columns = [
@@ -188,17 +216,19 @@ class TrinoConnector(BaseConnector):
                     }
                     for row in fetched
                 ]
-            query_id = getattr(cursor, "query_id", None)
+            trino_qid = getattr(cursor, "query_id", None)
             return QueryResult(
                 columns=columns,
                 rows=rows,
                 row_count=len(rows),
                 duration_seconds=time.monotonic() - started,
-                query_id=str(query_id) if query_id else None,
+                query_id=str(trino_qid) if trino_qid else None,
                 truncated=truncated,
                 sql=sql,
             )
         finally:
+            if query_id:
+                get_registry().unregister(query_id)
             try:
                 conn.close()
             except Exception:

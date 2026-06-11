@@ -1,0 +1,31 @@
+# CODEOWNERS — required reviewers for every PR on this repo.
+#
+# Every path below maps to one or more GitHub handles. When a PR touches
+# a matching file, GitHub automatically requests a review from the
+# corresponding owner, and the branch-protection rule on `main` blocks
+# merge until at least one CODEOWNER approves.
+#
+# References:
+#   https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Notes for contributors:
+#   * You do NOT need to be a CODEOWNER to open a PR.
+#   * You DO need a CODEOWNER's approval for it to merge.
+#   * If a CODEOWNER is the PR author, an additional reviewer is still
+#     required (configured via branch protection: dismiss stale reviews
+#     + require approval from someone other than the author).
+
+# Default owner for everything in the repo.
+*       @sanniheruwala
+
+# Security-sensitive surfaces — keep ownership explicit so the
+# rule above doesn't silently fall back to "default owner is fine".
+/rednotebook/security/        @sanniheruwala
+/rednotebook/auth/            @sanniheruwala
+/rednotebook/server/rate_limit.py  @sanniheruwala
+/rednotebook/audit/           @sanniheruwala
+/.github/                     @sanniheruwala
+/.github/workflows/           @sanniheruwala
+/SECURITY.md                  @sanniheruwala
+/docs/security.md             @sanniheruwala
+/docs/deployment.md           @sanniheruwala

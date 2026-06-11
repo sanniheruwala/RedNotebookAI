@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from rednotebook.notebook.runner import run_sql
 from rednotebook.security.sql_guard import check_sql
 from rednotebook.server.dependencies import build_connector
+from rednotebook.server.query_registry import get_registry
 from rednotebook.server.schemas import (
     ExplainQueryRequest,
     GuardInfo,
@@ -51,6 +52,7 @@ def run(payload: RunQueryRequest) -> RunQueryResponse:
         limit=payload.limit,
         allow_write_queries=True,
         confirm_write=True,
+        query_id=payload.query_id,
     )
     return RunQueryResponse(
         ok=execution.ok,
@@ -58,6 +60,19 @@ def run(payload: RunQueryRequest) -> RunQueryResponse:
         result=_result_payload(execution.result) if execution.result else None,
         error=execution.error,
     )
+
+
+@router.post("/cancel/{query_id}")
+def cancel(query_id: str) -> dict[str, bool | str]:
+    """Stop a running query by id.
+
+    The route fires the cancel callback the running query registered when
+    it began. ``cancelled=true`` means the callback ran; ``false`` means
+    no in-flight query is known by that id (either it already finished /
+    never registered, or the connector doesn't support cancellation).
+    """
+    ok = get_registry().cancel(query_id)
+    return {"cancelled": ok, "query_id": query_id}
 
 
 @router.post("/explain", response_model=RunQueryResponse)

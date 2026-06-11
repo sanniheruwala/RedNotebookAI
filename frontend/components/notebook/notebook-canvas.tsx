@@ -31,6 +31,7 @@ import { SQLCell } from "@/components/notebook/sql-cell";
 import { MarkdownCell } from "@/components/notebook/markdown-cell";
 import { AIPromptCell } from "@/components/notebook/ai-prompt-cell";
 import { VisualizationCell } from "@/components/notebook/visualization-cell";
+import { requestImmediateSave } from "@/hooks/use-autosave";
 import type { Cell, CellType } from "@/lib/types";
 
 export function NotebookCanvas() {
@@ -72,12 +73,15 @@ export function NotebookCanvas() {
       } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "ArrowDown" && selectedCellId) {
         e.preventDefault();
         moveCell(selectedCellId, "down");
+        requestImmediateSave();
       } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "ArrowUp" && selectedCellId) {
         e.preventDefault();
         moveCell(selectedCellId, "up");
+        requestImmediateSave();
       } else if ((e.key === "Backspace" || e.key === "Delete") && selectedCellId && (e.metaKey || e.shiftKey)) {
         e.preventDefault();
         removeCell(selectedCellId);
+        requestImmediateSave();
       }
     };
     window.addEventListener("keydown", handler);
@@ -96,6 +100,7 @@ export function NotebookCanvas() {
     const newIdx = cells.findIndex((c) => c.id === over.id);
     if (oldIdx < 0 || newIdx < 0) return;
     reorderCells(arrayMove(cells, oldIdx, newIdx).map((c) => c.id));
+    requestImmediateSave();
   };
 
   return (
@@ -119,7 +124,12 @@ export function NotebookCanvas() {
             </SortableContext>
           </DndContext>
 
-          <CellInserter onAdd={(t) => addCell(t)} />
+          <CellInserter
+            onAdd={(t) => {
+              addCell(t);
+              requestImmediateSave();
+            }}
+          />
         </div>
       </ScrollArea>
     </main>

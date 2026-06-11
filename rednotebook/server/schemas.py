@@ -195,6 +195,10 @@ class RunQueryRequest(BaseModel):
     sql: str
     limit: int | None = None
     confirm_write: bool = False
+    # Client-minted opaque id used to address this execution from the
+    # cancel endpoint (``POST /api/query/cancel/{query_id}``). Optional —
+    # omit and you get the legacy "abort the HTTP request only" behaviour.
+    query_id: str | None = None
 
 
 class GuardInfo(BaseModel):
@@ -344,10 +348,38 @@ class KnowledgeChatRequest(BaseModel):
     source_ids: list[str] = Field(default_factory=list)
 
 
+class KnowledgeCitation(BaseModel):
+    marker: int
+    source_id: str
+    title: str
+
+
 class KnowledgeChatResponse(BaseModel):
     answer: str
     provider: str
     cited_source_ids: list[str] = Field(default_factory=list)
+    # Ordered mapping of [n] markers the model emitted to the underlying
+    # source. The frontend renders these as clickable chips that scroll to
+    # the cited source card. NotebookLM-style grounding — without it, the
+    # citation-by-title strings the LLM was emitting before were fragile
+    # and untrackable.
+    citations: list[KnowledgeCitation] = Field(default_factory=list)
+
+
+class KnowledgeStudioRequest(BaseModel):
+    notebook_id: str
+    # Pick which sections to generate. Sent as a single request to keep
+    # everything anchored to the same source snapshot.
+    sections: list[Literal["overview", "faq", "study_guide", "suggested_questions"]] = (
+        Field(default_factory=lambda: ["overview", "faq", "study_guide", "suggested_questions"])
+    )
+    source_ids: list[str] = Field(default_factory=list)
+
+
+class KnowledgeStudioResponse(BaseModel):
+    provider: str
+    sections: dict[str, str]
+    citations: list[KnowledgeCitation] = Field(default_factory=list)
 
 
 class AddSourceRequest(BaseModel):
@@ -379,6 +411,14 @@ class InfographicGenerateRequest(BaseModel):
     aggregated_stats: dict[str, Any] = Field(default_factory=dict)
     notes: str | None = None
     persist: bool = False
+
+
+class InfographicRenderRequest(BaseModel):
+    """HTML payload to rasterise via the headless-browser exporter."""
+
+    html: str
+    format: Literal["pdf", "png"] = "pdf"
+    filename: str | None = None
 
 
 class InfographicGenerateResponse(BaseModel):
@@ -415,3 +455,26 @@ class SaveNotebookResponse(BaseModel):
     ok: bool
     notebook_id: str
     path: str
+    # New commit sha when the save touched the git-backed history. ``null``
+    # means either the working tree had no change vs. HEAD (a re-save with
+    # the same content) or git isn't available on this host.
+    commit_sha: str | None = None
+
+
+class NotebookHistoryItem(BaseModel):
+    sha: str
+    short_sha: str
+    timestamp: float
+    iso_timestamp: str
+    author_name: str
+    author_email: str
+    message: str
+
+
+class NotebookHistoryResponse(BaseModel):
+    notebook_id: str
+    commits: list[NotebookHistoryItem]
+
+
+class RestoreNotebookRequest(BaseModel):
+    sha: str

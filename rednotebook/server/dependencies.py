@@ -188,6 +188,17 @@ def notebook_storage_dep(
     return NotebookStorage(base)
 
 
+def notebook_git_store_dep(
+    settings: Settings = Depends(settings_dep),
+    user: User = Depends(require_user),
+):
+    """Per-user :class:`NotebookGitStore` for autosave-backed history."""
+    from rednotebook.notebook.git_store import NotebookGitStore
+
+    base = Path(settings.notebook_storage_dir) / user.id
+    return NotebookGitStore(base)
+
+
 def connection_store_dep(settings: Settings = Depends(settings_dep)):
     """Return a shared, encrypted ConnectionStore for the current user."""
     from rednotebook.connectors.store import ConnectionStore

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 
 from rednotebook.ai.base import DataFrameSchema, InfographicContext
 from rednotebook.ai.errors import AIProviderError
@@ -16,6 +17,7 @@ from rednotebook.server.dependencies import knowledge_store_dep
 from rednotebook.server.schemas import (
     InfographicGenerateRequest,
     InfographicGenerateResponse,
+    InfographicRenderRequest,
 )
 from rednotebook.visualization.infographic import (
     export_infographic,
@@ -100,4 +102,38 @@ def generate(
         image=image_data_url,
         svg=svg_doc,
         export_path=export_path,
+    )
+
+
+_EXPORT_MIME = {"pdf": "application/pdf", "png": "image/png"}
+
+
+@router.post("/render")
+def render(payload: InfographicRenderRequest) -> Response:
+    """Rasterise an infographic's HTML to PDF or PNG via headless Chromium.
+
+    The HTML is rendered self-contained — no network requests. Returns the
+    binary bytes with a Content-Disposition hint so the browser saves it
+    directly. Requires the ``[exports]`` extra (Playwright + Chromium).
+    """
+    from rednotebook.visualization.render_browser import render_html
+
+    fmt = payload.format
+    try:
+        data = render_html(payload.html, fmt)
+    except RuntimeError as exc:  # missing playwright SDK / browser binary
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - rendering failures
+        raise HTTPException(
+            status_code=500, detail=f"Render failed: {exc}"
+        ) from exc
+
+    filename = payload.filename or f"infographic.{fmt}"
+    return Response(
+        content=data,
+        media_type=_EXPORT_MIME[fmt],
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
     )

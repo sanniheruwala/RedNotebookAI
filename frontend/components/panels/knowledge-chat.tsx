@@ -12,7 +12,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Kbd } from "@/components/ui/kbd";
 import { api } from "@/lib/api";
 
-type Message = { role: "user" | "assistant"; content: string; provider?: string };
+type Citation = { marker: number; source_id: string; title: string };
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  provider?: string;
+  citations?: Citation[];
+};
 
 export function KnowledgeChat({
   notebookId,
@@ -41,7 +47,12 @@ export function KnowledgeChat({
     onSuccess: (res) => {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: res.answer, provider: res.provider },
+        {
+          role: "assistant",
+          content: res.answer,
+          provider: res.provider,
+          citations: res.citations ?? [],
+        },
       ]);
     },
     onError: (err: Error, _question) => {
@@ -97,7 +108,7 @@ export function KnowledgeChat({
                     </span>
                   )}
                 </div>
-                <Markdown variant="compact">{m.content}</Markdown>
+                <GroundedAnswer message={m} />
               </motion.div>
             ))}
             {ask.isPending && (
@@ -153,5 +164,100 @@ export function KnowledgeChat({
         </div>
       </div>
     </div>
+  );
+}
+
+// Render an assistant message with `[n]` citation markers replaced by
+// clickable chips. The chip jumps to the cited source card via a
+// scroll-into-view on the dom id the panel assigns to each source row.
+// User messages still render as a plain markdown block since they
+// shouldn't contain citations.
+function GroundedAnswer({ message }: { message: Message }) {
+  if (message.role !== "assistant" || !message.citations?.length) {
+    return <Markdown variant="compact">{message.content}</Markdown>;
+  }
+  const map = new Map(message.citations.map((c) => [c.marker, c]));
+  // Replace each [n] in the text with a sentinel placeholder we can split
+  // on later, so the markdown renderer doesn't try to interpret the chip.
+  const parts: Array<{ type: "text" | "cite"; value: string; citation?: Citation }> = [];
+  const re = /\[(\d{1,3})\]/g;
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(message.content)) !== null) {
+    if (m.index > lastIndex) {
+      parts.push({ type: "text", value: message.content.slice(lastIndex, m.index) });
+    }
+    const n = Number(m[1]);
+    const citation = map.get(n);
+    if (citation) {
+      parts.push({ type: "cite", value: m[0], citation });
+    } else {
+      // Marker without a matching citation — keep the original text so we
+      // don't silently swallow the model's output.
+      parts.push({ type: "text", value: m[0] });
+    }
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < message.content.length) {
+    parts.push({ type: "text", value: message.content.slice(lastIndex) });
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="leading-relaxed">
+        {parts.map((p, i) =>
+          p.type === "text" ? (
+            <span key={i}>
+              <Markdown variant="compact">{p.value}</Markdown>
+            </span>
+          ) : (
+            <CitationChip key={i} citation={p.citation!} />
+          ),
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1 border-t pt-1.5">
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
+          Cited
+        </span>
+        {message.citations.map((c) => (
+          <CitationChip key={c.marker} citation={c} verbose />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CitationChip({
+  citation,
+  verbose = false,
+}: {
+  citation: Citation;
+  verbose?: boolean;
+}) {
+  const onClick = () => {
+    const el = document.getElementById(`knowledge-source-${citation.source_id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      el.classList.add("ring-2", "ring-primary", "ring-offset-1");
+      setTimeout(
+        () => el.classList.remove("ring-2", "ring-primary", "ring-offset-1"),
+        1500,
+      );
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={citation.title}
+      className="inline-flex items-center gap-0.5 rounded-md border border-primary/30 bg-primary/10 px-1 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/20"
+    >
+      [{citation.marker}]
+      {verbose && (
+        <span className="ml-0.5 max-w-[14ch] truncate font-normal text-foreground/80">
+          {citation.title}
+        </span>
+      )}
+    </button>
   );
 }

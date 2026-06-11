@@ -1,18 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  AlertCircle,
   BookMarked,
+  Check,
   Download,
+  History,
   Loader2,
   Play,
-  Save,
   Settings2,
   Sparkles,
   Upload,
 } from "lucide-react";
+import { useAutosave } from "@/hooks/use-autosave";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -26,12 +29,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandMark } from "@/components/brand-mark";
 import { UserMenu } from "@/components/topbar/user-menu";
 import { SettingsDialog } from "@/components/topbar/settings-dialog";
+import { NotebookHistoryDialog } from "@/components/topbar/notebook-history-dialog";
 import { useActiveNotebook, useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
 import { useUIStore } from "@/store/ui-store";
 import { api } from "@/lib/api";
-import { connectionLabel, isConfigured } from "@/lib/connection";
-import { ConnectionPicker } from "@/components/sidebar/connection-picker";
+import { isConfigured } from "@/lib/connection";
 
 export function Topbar() {
   const notebook = useActiveNotebook();
@@ -42,6 +45,7 @@ export function Topbar() {
   const toggleKnowledge = useUIStore((s) => s.toggleKnowledge);
   const knowledgeOpen = useUIStore((s) => s.knowledgeOpen);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
 
   const openTab = useNotebookStore((s) => s.openTab);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -96,16 +100,7 @@ export function Topbar() {
     refetchInterval: 30_000,
   });
 
-  const qc = useQueryClient();
-  const saveMutation = useMutation({
-    mutationFn: () => api.saveNotebook(notebook.id, notebook),
-    onSuccess: () => {
-      // Refresh the left-panel notebook list so a rename shows up immediately.
-      qc.invalidateQueries({ queryKey: ["notebooks"] });
-      toast.success("Notebook saved");
-    },
-    onError: (err: Error) => toast.error(`Save failed: ${err.message}`),
-  });
+  const autosave = useAutosave();
 
   const runAllMutation = useMutation({
     mutationFn: async () => {
@@ -136,7 +131,7 @@ export function Topbar() {
       const isMod = e.metaKey || e.ctrlKey;
       if (isMod && !e.shiftKey && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        saveMutation.mutate();
+        void autosave.saveNow();
       } else if (isMod && e.shiftKey && e.key === "Enter") {
         e.preventDefault();
         runAllMutation.mutate();
@@ -149,9 +144,6 @@ export function Topbar() {
     return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exportNotebook]);
-
-  const connected = isConfigured(connection);
-  const connLabel = connectionLabel(connection);
 
   return (
     <header className="glass-strong sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b px-4">
@@ -166,21 +158,22 @@ export function Topbar() {
           placeholder="Untitled notebook"
           className="h-8 max-w-[28ch] border-none bg-transparent px-2 text-sm font-medium tracking-tightish shadow-none focus-visible:bg-accent focus-visible:ring-1 focus-visible:ring-ring"
         />
-        <div className="hidden items-center gap-1.5 lg:flex">
-          <StatusDot ok={connected} />
-          <span className="text-[11px] text-muted-foreground">{connLabel}</span>
-          {health.data?.ai_provider && (
-            <>
-              <span className="text-muted-foreground/40">·</span>
-              <span className="text-[11px] text-muted-foreground">
-                AI:{" "}
-                <span className="font-medium text-foreground">
-                  {health.data.ai_provider}
-                </span>
+        <AutosaveBadge
+          status={autosave.status}
+          lastSavedAt={autosave.lastSavedAt}
+          onRetry={autosave.saveNow}
+        />
+        {health.data?.ai_provider && (
+          <div className="hidden items-center gap-1.5 lg:flex">
+            <span className="text-muted-foreground/40">·</span>
+            <span className="text-[11px] text-muted-foreground">
+              AI:{" "}
+              <span className="font-medium text-foreground">
+                {health.data.ai_provider}
               </span>
-            </>
-          )}
-        </div>
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -204,29 +197,6 @@ export function Topbar() {
             Run every SQL cell <Kbd>⌘</Kbd>
             <Kbd>⇧</Kbd>
             <Kbd>↵</Kbd>
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="gap-1.5"
-            >
-              {saveMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Save
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-2">
-            Save notebook <Kbd>⌘</Kbd>
-            <Kbd>S</Kbd>
           </TooltipContent>
         </Tooltip>
 
@@ -272,7 +242,19 @@ export function Topbar() {
 
         <Separator orientation="vertical" className="mx-1 h-6" />
 
-        <ConnectionPicker />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              variant={historyOpen ? "default" : "ghost"}
+              aria-label="Notebook history"
+              onClick={() => setHistoryOpen(true)}
+            >
+              <History className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Notebook history</TooltipContent>
+        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>
@@ -324,21 +306,72 @@ export function Topbar() {
         <UserMenu />
       </div>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <NotebookHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        notebookId={notebook.id}
+      />
     </header>
   );
 }
 
-function StatusDot({ ok }: { ok: boolean }) {
+function AutosaveBadge({
+  status,
+  lastSavedAt,
+  onRetry,
+}: {
+  status: ReturnType<typeof useAutosave>["status"];
+  lastSavedAt: number | null;
+  onRetry: () => Promise<void>;
+}) {
+  const label = (() => {
+    switch (status) {
+      case "saving":
+        return "Saving…";
+      case "saved":
+        return "Saved";
+      case "dirty":
+        return "Editing…";
+      case "error":
+        return "Save failed";
+      default:
+        return lastSavedAt ? "Saved" : "";
+    }
+  })();
+  if (!label) return null;
+  const Icon =
+    status === "saving"
+      ? Loader2
+      : status === "error"
+        ? AlertCircle
+        : Check;
   return (
-    <span className="relative flex h-2 w-2">
-      {ok && (
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-50" />
-      )}
-      <span
-        className={`relative inline-flex h-2 w-2 rounded-full ${
-          ok ? "bg-primary" : "bg-muted-foreground/40"
-        }`}
+    <button
+      type="button"
+      onClick={() => {
+        if (status === "error") void onRetry();
+      }}
+      title={
+        status === "error"
+          ? "Click to retry"
+          : status === "saved" || status === "idle"
+            ? lastSavedAt
+              ? `Last saved ${new Date(lastSavedAt).toLocaleTimeString()}`
+              : "Autosave enabled"
+            : ""
+      }
+      className={`hidden items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-colors lg:flex ${
+        status === "error"
+          ? "border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15"
+          : status === "saving" || status === "dirty"
+            ? "text-muted-foreground"
+            : "text-muted-foreground"
+      }`}
+    >
+      <Icon
+        className={`h-3 w-3 ${status === "saving" ? "animate-spin" : ""}`}
       />
-    </span>
+      {label}
+    </button>
   );
 }

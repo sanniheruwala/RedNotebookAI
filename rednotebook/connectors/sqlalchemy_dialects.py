@@ -18,6 +18,7 @@ raises a clear runtime error instead of crashing on import at startup.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -189,8 +190,87 @@ class SQLAlchemyConnector(BaseConnector):
         ident = f'"{schema}"."{table}"' if schema else f'"{table}"'
         return self.run_query(f"SELECT * FROM {ident}", limit=limit)
 
-    def run_query(self, sql: str, limit: int | None = None) -> QueryResult:
+    # ----- Cancellation -----------------------------------------------------
+    #: Dialects whose cancel SQL is known and safe. The base class registers
+    #: a cancel hook only for these; everything else keeps the default
+    #: behaviour where Stop aborts the HTTP request but the engine keeps
+    #: running until it finishes on its own.
+    _CANCEL_DIALECTS: frozenset[str] = frozenset(
+        {"postgresql", "mysql", "mariadb", "redshift"}
+    )
+
+    def supports_cancellation(self) -> bool:
+        return self.dialect_driver.split("+", 1)[0] in self._CANCEL_DIALECTS
+
+    def _build_cancel_callback(
+        self,
+        pid: int | str | None,
+    ) -> Callable[[], None] | None:
+        """Return a thunk that asks the server to kill backend ``pid``.
+
+        Implementation is per-dialect: Postgres uses ``pg_cancel_backend``,
+        MySQL/MariaDB use ``KILL QUERY``. The cancel opens a *separate*
+        short-lived connection because the original is busy executing the
+        user's query — there's no way to send a side-channel command on
+        the same connection.
+        """
+        if pid is None or not self.supports_cancellation():
+            return None
+        dialect = self.dialect_driver.split("+", 1)[0]
+        engine = self._engine
+        if engine is None:
+            return None
+
         import sqlalchemy as sa
+
+        if dialect in {"postgresql", "redshift"}:
+            kill_sql = sa.text("SELECT pg_cancel_backend(:pid)")
+        elif dialect in {"mysql", "mariadb"}:
+            kill_sql = sa.text(f"KILL QUERY {int(pid)}")
+        else:  # pragma: no cover - guarded by supports_cancellation
+            return None
+
+        def _cancel() -> None:
+            try:
+                with engine.connect() as side_conn:
+                    if dialect in {"postgresql", "redshift"}:
+                        side_conn.execute(kill_sql, {"pid": int(pid)})
+                    else:
+                        side_conn.execute(kill_sql)
+                    side_conn.commit()
+            except Exception:
+                # Best-effort: a finished or already-cancelled query yields a
+                # benign error we don't want to surface to the cancel caller.
+                pass
+
+        return _cancel
+
+    def _fetch_backend_pid(self, conn) -> int | None:  # type: ignore[no-untyped-def]
+        """Look up the per-connection backend PID for kill commands."""
+        import sqlalchemy as sa
+
+        dialect = self.dialect_driver.split("+", 1)[0]
+        try:
+            if dialect in {"postgresql", "redshift"}:
+                row = conn.execute(sa.text("SELECT pg_backend_pid()")).fetchone()
+            elif dialect in {"mysql", "mariadb"}:
+                row = conn.execute(sa.text("SELECT CONNECTION_ID()")).fetchone()
+            else:
+                return None
+            return int(row[0]) if row and row[0] is not None else None
+        except Exception:
+            return None
+
+    def run_query(
+        self,
+        sql: str,
+        limit: int | None = None,
+        *,
+        query_id: str | None = None,
+    ) -> QueryResult:
+        import sqlalchemy as sa
+
+        from rednotebook.server.query_registry import get_registry
 
         cap = limit if limit is not None else self.config.max_result_rows
         started = time.monotonic()
@@ -199,25 +279,44 @@ class SQLAlchemyConnector(BaseConnector):
         rows: list[dict[str, Any]] = []
         truncated = False
         with engine.connect() as conn:
-            cursor = conn.execute(sa.text(sql))
-            # DDL/DML (CREATE, INSERT, UPDATE, …) returns no rows. Commit and
-            # short-circuit instead of asking the result for cursor metadata.
-            if cursor.returns_rows:
-                description = cursor.cursor.description if cursor.cursor else None
-                columns = [
-                    ColumnInfo(name=str(d[0]), data_type="", nullable=True)
-                    for d in (description or [])
-                ]
-                rows_raw = cursor.fetchmany(cap + 1) if cap else cursor.fetchall()
-                truncated = bool(cap) and len(rows_raw) > cap
-                if truncated:
-                    rows_raw = rows_raw[:cap]
-                rows = [
-                    {col.name: coerce_row_value(row[i]) for i, col in enumerate(columns)}
-                    for row in rows_raw
-                ]
-            else:
-                conn.commit()
+            # Wire up server-side cancellation BEFORE the long-running
+            # execute(). The cancel POST handler may arrive any time after
+            # this point; if it lands before the engine has actually started
+            # the query, the kill SQL is a harmless no-op on a non-existent
+            # pid.
+            if query_id and self.supports_cancellation():
+                pid = self._fetch_backend_pid(conn)
+                cancel_cb = self._build_cancel_callback(pid)
+                if cancel_cb is not None:
+                    get_registry().register(
+                        query_id,
+                        cancel_cb,
+                        label=f"{self.dialect_driver}:pid={pid}",
+                    )
+            try:
+                cursor = conn.execute(sa.text(sql))
+                # DDL/DML (CREATE, INSERT, UPDATE, …) returns no rows. Commit
+                # and short-circuit instead of asking the result for cursor
+                # metadata.
+                if cursor.returns_rows:
+                    description = cursor.cursor.description if cursor.cursor else None
+                    columns = [
+                        ColumnInfo(name=str(d[0]), data_type="", nullable=True)
+                        for d in (description or [])
+                    ]
+                    rows_raw = cursor.fetchmany(cap + 1) if cap else cursor.fetchall()
+                    truncated = bool(cap) and len(rows_raw) > cap
+                    if truncated:
+                        rows_raw = rows_raw[:cap]
+                    rows = [
+                        {col.name: coerce_row_value(row[i]) for i, col in enumerate(columns)}
+                        for row in rows_raw
+                    ]
+                else:
+                    conn.commit()
+            finally:
+                if query_id:
+                    get_registry().unregister(query_id)
         elapsed = time.monotonic() - started
         return QueryResult(
             columns=columns,

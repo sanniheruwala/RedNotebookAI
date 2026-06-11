@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-AIProviderName = Literal["mock", "openai", "anthropic", "ollama"]
+AIProviderName = Literal["mock", "openai", "anthropic", "ollama", "cursor"]
 KnowledgeProviderName = Literal["internal", "notebooklm_enterprise"]
 AIContextMode = Literal["schema_only", "schema_and_stats", "schema_stats_samples"]
 
@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
+    # Cursor — treated as an OpenAI-compatible endpoint. Cursor doesn't
+    # publish a public completions API today, so the base URL defaults to
+    # their announced API host; point it at any compatible endpoint to
+    # repurpose the provider (proxies, gateways, OpenRouter, etc.).
+    cursor_api_key: str | None = None
+    cursor_base_url: str = "https://api.cursor.com/v1"
+    cursor_model: str = "cursor-small"
 
     # AI context controls
     ai_context_mode: AIContextMode = "schema_and_stats"

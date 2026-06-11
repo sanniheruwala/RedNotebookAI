@@ -3,6 +3,9 @@ contact_links:
   - name: Documentation
     url: https://github.com/sanniheruwala/RedNotebookAI/tree/main/docs
     about: Check the docs before filing. Architecture, AI, security, connectors.
+  - name: Contributing guide
+    url: https://github.com/sanniheruwala/RedNotebookAI/blob/main/docs/contributing.md
+    about: How to propose a change. Open an issue first; PR + maintainer approval is required before merge.
   - name: Security disclosure
     url: https://github.com/sanniheruwala/RedNotebookAI/security/policy
     about: Reporting a vulnerability. Please do not open a public issue.

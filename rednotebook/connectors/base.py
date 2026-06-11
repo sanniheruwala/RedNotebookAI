@@ -119,15 +119,32 @@ class BaseConnector(ABC):
         """Return a small sample of rows from a table."""
 
     @abstractmethod
-    def run_query(self, sql: str, limit: int | None = None) -> QueryResult:
-        """Execute a SQL query and return its result."""
+    def run_query(
+        self,
+        sql: str,
+        limit: int | None = None,
+        *,
+        query_id: str | None = None,
+    ) -> QueryResult:
+        """Execute a SQL query and return its result.
+
+        ``query_id`` is the client-minted token used to address this
+        execution from the cancel endpoint. Connectors that support
+        cancellation register a per-engine kill hook against this id
+        for the duration of the call.
+        """
 
     @abstractmethod
     def explain_query(self, sql: str) -> QueryResult:
         """Return EXPLAIN output for a SQL query."""
 
-    def cancel_query(self, query_id: str) -> bool:  # pragma: no cover - default stub
-        """Cancel a running query. Default implementation is a no-op."""
+    def supports_cancellation(self) -> bool:
+        """Whether this connector can kill an in-flight query at the engine.
+
+        Default False; subclasses that wire up the cancel registry flip
+        this to True so the UI can stop pretending a Stop click reaches
+        the engine when it doesn't.
+        """
         return False
 
 

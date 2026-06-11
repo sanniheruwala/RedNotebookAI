@@ -13,6 +13,7 @@ import { api } from "@/lib/api";
 import type { InfographicBrief, KnowledgeNotebook, KnowledgeSource } from "@/lib/types";
 import { InfographicModal } from "@/components/panels/infographic-modal";
 import { KnowledgeChat } from "@/components/panels/knowledge-chat";
+import { KnowledgeStudioDialog } from "@/components/panels/knowledge-studio";
 
 export function KnowledgePanel() {
   const qc = useQueryClient();
@@ -23,6 +24,7 @@ export function KnowledgePanel() {
     html: string;
     template: string;
   } | null>(null);
+  const [studioOpen, setStudioOpen] = React.useState(false);
 
   const notebooks = useQuery({
     queryKey: ["knowledge-notebooks"],
@@ -143,9 +145,19 @@ export function KnowledgePanel() {
         sourceIds={sources.data?.sources.map((s) => s.id)}
       />
 
-      <div className="border-t p-3">
+      <div className="grid grid-cols-2 gap-2 border-t p-3">
         <Button
-          className="w-full gap-1.5 shadow-sm shadow-primary/20"
+          className="gap-1.5"
+          size="sm"
+          variant="secondary"
+          onClick={() => setStudioOpen(true)}
+          disabled={!activeId}
+        >
+          <Sparkles className="h-4 w-4" />
+          Studio
+        </Button>
+        <Button
+          className="gap-1.5 shadow-sm shadow-primary/20"
           size="sm"
           onClick={() => generateInfographic.mutate()}
           disabled={generateInfographic.isPending}
@@ -155,7 +167,7 @@ export function KnowledgePanel() {
           ) : (
             <ImageIcon className="h-4 w-4" />
           )}
-          Generate infographic
+          Infographic
         </Button>
       </div>
 
@@ -166,13 +178,24 @@ export function KnowledgePanel() {
         template={infographic?.template ?? "executive_kpi_brief"}
         rawHtml={infographic?.html}
       />
+      <KnowledgeStudioDialog
+        open={studioOpen}
+        onOpenChange={setStudioOpen}
+        notebookId={activeId}
+      />
     </div>
   );
 }
 
 function SourceRow({ src }: { src: KnowledgeSource }) {
+  // DOM id is the anchor citation chips scroll to. Keep it stable so a
+  // citation rendered from cached query data still finds its row after
+  // the source list re-renders.
   return (
-    <div className="rounded-lg border bg-card p-3">
+    <div
+      id={`knowledge-source-${src.id}`}
+      className="rounded-lg border bg-card p-3 transition-shadow"
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <FileText className="h-3.5 w-3.5 text-muted-foreground" />
