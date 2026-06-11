@@ -47,6 +47,10 @@ try:  # pragma: no cover - optional
     import rednotebook.ai.ollama_provider  # noqa: F401
 except Exception:
     pass
+try:  # pragma: no cover - optional
+    import rednotebook.ai.cursor_provider  # noqa: F401
+except Exception:
+    pass
 
 
 def create_app() -> FastAPI:

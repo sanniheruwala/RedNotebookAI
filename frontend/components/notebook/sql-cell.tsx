@@ -32,6 +32,8 @@ import { useActiveCellResult, useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
 import { api } from "@/lib/api";
 import { isConfigured } from "@/lib/connection";
+import { computeAggregatedStats } from "@/lib/result-stats";
+import { requestImmediateSave } from "@/hooks/use-autosave";
 import { formatDuration, formatNumber } from "@/lib/utils";
 import type { SQLCell as SQLCellType } from "@/lib/types";
 
@@ -56,6 +58,11 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   // previous abort doesn't poison the next attempt. Stored in a ref so the
   // Stop button has a stable handle to .abort() on click.
   const abortRef = React.useRef<AbortController | null>(null);
+  // Client-minted id for the in-flight query. The server registers a
+  // per-engine cancel hook (DuckDB interrupt / Trino DELETE / Postgres
+  // pg_cancel_backend) against this id; the Stop button fires
+  // /api/query/cancel/<id> before aborting the fetch.
+  const queryIdRef = React.useRef<string | null>(null);
 
   // Latest Monaco instance, captured on mount. We grab the live selection
   // at run time so the user can highlight one statement and run *just*
@@ -86,6 +93,11 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      const qid =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      queryIdRef.current = qid;
       setCellResult(cell.id, {
         running: true,
         error: null,
@@ -96,6 +108,7 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
           connection,
           sql: resolveSqlToRun(),
           limit: cell.limit ?? undefined,
+          query_id: qid,
         },
         controller.signal,
       );
@@ -103,6 +116,10 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
     onSuccess: (response) => {
       ingestRunResponse(cell.id, response);
       if (!response.ok) toast.error(response.error || "Query failed");
+      // Snapshot the notebook the moment a run completes so the user
+      // gets a checkpoint in history even before the debounce window
+      // would have fired.
+      requestImmediateSave();
     },
     onError: (err: Error) => {
       // AbortController.abort() rejects the fetch with an AbortError. Treat
@@ -120,27 +137,47 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   });
 
   const stop = React.useCallback(() => {
+    // Fire the server-side cancel first so the engine starts tearing
+    // down before we abort the fetch. Best-effort: any error from the
+    // cancel call is swallowed — the user already wants this to stop.
+    const qid = queryIdRef.current;
+    if (qid) {
+      api.cancelQuery(qid).catch(() => {});
+    }
     abortRef.current?.abort();
     abortRef.current = null;
+    queryIdRef.current = null;
   }, []);
 
   // Abort any in-flight query if the cell unmounts (e.g., notebook close).
   React.useEffect(() => () => abortRef.current?.abort(), []);
 
-  // Inline explanation panel state. We render the full markdown response
-  // in the cell itself rather than a 300-char toast preview that vanishes.
-  const [explanation, setExplanation] = React.useState<{ text: string; provider?: string } | null>(null);
-  const explainToastId = `explain-${cell.id}`;
-  const explain = useMutation({
-    mutationFn: () => api.aiExplainSQL({ sql: cell.sql, context: {} }),
+  // Inline summary panel state. The summarize-result button replaced the
+  // older "Explain SQL" affordance — explaining the query text alone wasn't
+  // pulling its weight; what users actually want is a deep read of the
+  // *result* (numbers, outliers, follow-ups).
+  const [summary, setSummary] = React.useState<{ text: string; provider?: string } | null>(null);
+  const summaryToastId = `summary-${cell.id}`;
+  const result = cellResult?.result ?? null;
+  const summarize = useMutation({
+    mutationFn: () => {
+      if (!result) throw new Error("Run the query first — nothing to summarize");
+      return api.aiExplainResult({
+        sql: cell.sql,
+        columns: result.columns,
+        sample_rows: result.rows.slice(0, 20),
+        row_count: result.row_count,
+        aggregated_stats: computeAggregatedStats(result),
+      });
+    },
     onMutate: () => {
-      toast.loading("AI is explaining your SQL…", { id: explainToastId });
+      toast.loading("AI is summarizing your result…", { id: summaryToastId });
     },
     onSuccess: (res) => {
-      setExplanation({ text: res.text, provider: res.provider });
-      toast.dismiss(explainToastId);
+      setSummary({ text: res.text, provider: res.provider });
+      toast.dismiss(summaryToastId);
     },
-    onError: (err: Error) => toast.error(err.message, { id: explainToastId }),
+    onError: (err: Error) => toast.error(err.message, { id: summaryToastId }),
   });
 
   const optimizeToastId = `optimize-${cell.id}`;
@@ -388,9 +425,10 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
                 <TooltipContent className="flex items-center gap-1">
                   {isRunning ? (
                     <span className="text-balance">
-                      Stops the in-flight request. The underlying database
-                      may keep executing the query until it finishes on its
-                      own.
+                      Asks the engine to cancel the query (DuckDB,
+                      Trino, Postgres, MySQL, MariaDB, Redshift). For
+                      other engines the HTTP request is aborted and the
+                      server-side query is left to finish on its own.
                     </span>
                   ) : (
                     <>
@@ -404,20 +442,29 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
                 </TooltipContent>
               </Tooltip>
               <Separator orientation="vertical" className="h-5" />
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => explain.mutate()}
-                disabled={explain.isPending || isRunning}
-                className="h-8 gap-1.5"
-              >
-                {explain.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                )}
-                {explain.isPending ? "Explaining…" : "Explain"}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => summarize.mutate()}
+                    disabled={summarize.isPending || isRunning || !hasResult}
+                    className="h-8 gap-1.5"
+                  >
+                    {summarize.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    )}
+                    {summarize.isPending ? "Summarizing…" : "Summarize result"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {hasResult
+                    ? "Deep-read the result — numbers, outliers, follow-ups"
+                    : "Run the query first"}
+                </TooltipContent>
+              </Tooltip>
               <Button
                 size="sm"
                 variant="ghost"
@@ -435,7 +482,7 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
             </div>
 
             <AnimatePresence>
-              {explanation && (
+              {summary && (
                 <motion.div
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -445,10 +492,10 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
                   <div className="mb-1.5 flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary">
                       <Sparkles className="h-3 w-3" />
-                      AI explanation
-                      {explanation.provider && (
+                      Result summary
+                      {summary.provider && (
                         <span className="font-normal text-muted-foreground/80">
-                          · {explanation.provider}
+                          · {summary.provider}
                         </span>
                       )}
                     </div>
@@ -456,13 +503,13 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
                       size="icon"
                       variant="ghost"
                       className="h-5 w-5"
-                      onClick={() => setExplanation(null)}
-                      aria-label="Dismiss explanation"
+                      onClick={() => setSummary(null)}
+                      aria-label="Dismiss summary"
                     >
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
-                  <Markdown variant="cell">{explanation.text}</Markdown>
+                  <Markdown variant="cell">{summary.text}</Markdown>
                 </motion.div>
               )}
             </AnimatePresence>

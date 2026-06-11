@@ -48,11 +48,32 @@
        (Explain, Optimize, Ask AI, Knowledge chat, Summarize result,
        Generate infographic, Chart auto-suggest) now goes through the
        configured provider end-to-end (v0.7.9).
-- 🟡 Server-side query cancellation via query-id tracking (DuckDB
-       `interrupt()`, Trino `cancel()`, Postgres `pg_cancel_backend`).
-- 🟡 Better profiling (histograms, mutual-info hints)
-- 🟡 Better infographic templates + PDF/PNG export (kaleido + headless Chrome)
-- 🟡 Python cell type (where notebook host allows)
+- ✅ Server-side query cancellation via a process-wide query-id
+       registry. DuckDB uses `interrupt()`, Trino uses `cursor.cancel()`,
+       Postgres / Redshift use `pg_cancel_backend(pid)`, MySQL / MariaDB
+       use `KILL QUERY pid`. The Stop button now actually reaches the
+       engine instead of just aborting the HTTP request (v0.7.15).
+- ✅ Richer profiling: per-column histograms (sparkline-rendered in the
+       Profile tab) and a "Related columns" panel ranked by normalised
+       mutual information (v0.7.15).
+- ✅ Headless-browser PDF / PNG export for infographics via Playwright
+       — install the `[exports]` extra and run `playwright install
+       chromium`, then use the PDF / PNG buttons in the infographic
+       modal (v0.7.15).
+- ✅ Cursor AI provider — OpenAI-compatible endpoint with a
+       configurable `CURSOR_BASE_URL` so any compatible gateway works
+       (v0.7.15).
+- ✅ Explain SQL button replaced by a prominent "Summarize result"
+       button that pulls a deep numeric briefing (headline, numbers
+       worth knowing, key findings, distribution shape, anomalies,
+       follow-up questions) from the actual result (v0.7.15).
+- ✅ Connection control unified in the left sidebar; removed from the
+       topbar to cut UI duplication (v0.7.15).
+- ✅ NotebookLM-style knowledge layer: `[n]` citation markers in chat
+       answers (chips scroll to the cited source card), plus a Studio
+       dialog that generates Overview / FAQ / Study guide / Suggested
+       follow-up questions from the notebook's sources (v0.7.15).
+- 🟡 Python cell type — deferred. RedNotebook AI stays SQL-first.
 
 ## Phase 3. More connectors — ✅ shipped in v0.7.x
 
@@ -67,11 +88,13 @@
 
 ## Phase 4. Collaboration / SaaS — 🟡 in progress
 
-- Git-backed notebooks
-- Sharing + comments
-- Scheduled queries / alerts
-- Dashboard publishing
-- dbt + Airflow integrations
-- Semantic layer
-- RBAC / SSO (partial — GitHub OAuth + invites shipped)
-- Hosted SaaS version
+- ✅ Rate limiting via `slowapi` on auth + AI routes (already shipped).
+- ✅ Audit log (`rednotebook/audit/log.py`) — surfaced in the admin UI.
+- 🟡 Git-backed notebooks
+- 🟡 Sharing + comments
+- 🟡 Scheduled queries / alerts
+- 🟡 Dashboard publishing
+- 🟡 dbt + Airflow integrations
+- 🟡 Semantic layer
+- 🟡 Full RBAC / SSO (partial — GitHub OAuth + admin invites shipped).
+- 🟡 Hosted SaaS version

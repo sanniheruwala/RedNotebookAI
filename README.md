@@ -103,7 +103,7 @@ RedNotebook AI is local-first. Today:
 |------|------------|
 | 🟢 **Your laptop** (`localhost`) | ✅ Primary use case |
 | 🟢 **Single team behind VPN / private network** | ✅ With the [hardening checklist](docs/deployment.md#tier-2--single-team-behind-a-vpn--private-network) |
-| 🔴 **Public internet, multi-user SaaS** | ⚠️ Auth landed; rate-limiting + audit log are on the [Phase 4 roadmap](docs/roadmap.md). |
+| 🔴 **Public internet, multi-user SaaS** | ⚠️ Auth, rate-limiting (`slowapi`), and audit log have all landed. Full SaaS hardening (RBAC / SSO / sharing) is on the [Phase 4 roadmap](docs/roadmap.md). |
 
 See [`docs/deployment.md`](docs/deployment.md) for the full security model.
 
@@ -169,6 +169,7 @@ Custom HTTP headers, session properties, query timeouts, and result limits are a
 | **OpenAI** | `AI_PROVIDER=openai`, `OPENAI_API_KEY=sk-…` |
 | **Anthropic** | `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=sk-ant-…` |
 | **Ollama** (local) | `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://localhost:11434` |
+| **Cursor** (OpenAI-compatible) | `AI_PROVIDER=cursor`, `CURSOR_API_KEY=…`, `CURSOR_BASE_URL=https://api.cursor.com/v1` |
 
 Privacy defaults:
 
@@ -262,7 +263,25 @@ Continuous integration runs the full suite on every push and PR. See [`.github/w
 
 ## Contributing
 
-Issues, PRs, and design feedback all welcome. See [`docs/contributing.md`](docs/contributing.md) and the [PR template](.github/pull_request_template.md). For vulnerabilities, please use [private disclosure](SECURITY.md), not a public issue.
+We follow the standard open-source flow. The short version:
+
+1. **Open an issue first.** Use the
+   [bug report](https://github.com/sanniheruwala/RedNotebookAI/issues/new?template=bug_report.yml)
+   or
+   [feature request](https://github.com/sanniheruwala/RedNotebookAI/issues/new?template=feature_request.yml)
+   templates. Drive-by PRs with no linked issue may be closed without review.
+2. **Fork, branch, write, run the checks locally**
+   (`pytest`, `ruff check .`, `npm run lint && npm run typecheck && npm run build`).
+3. **Open a PR** referencing the issue (`Closes #123`).
+4. **A maintainer reviews and approves before merge.**
+   `main` is a protected branch — direct pushes are blocked, every change
+   needs ✅ green CI **and** ✅ approval from a
+   [CODEOWNER](.github/CODEOWNERS). No exceptions, even for admins.
+
+See [`docs/contributing.md`](docs/contributing.md) for the full flow,
+branch-naming conventions, what we say "no" to, and the maintainer
+rights. For security vulnerabilities, use
+[private disclosure](SECURITY.md), never a public issue.
 
 ---
 

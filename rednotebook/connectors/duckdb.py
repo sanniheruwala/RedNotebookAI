@@ -158,12 +158,33 @@ class DuckDBConnector(BaseConnector):
         )
         return self.run_query(sql, limit=limit)
 
-    def run_query(self, sql: str, limit: int | None = None) -> QueryResult:
+    def supports_cancellation(self) -> bool:
+        return True
+
+    def run_query(
+        self,
+        sql: str,
+        limit: int | None = None,
+        *,
+        query_id: str | None = None,
+    ) -> QueryResult:
+        from rednotebook.server.query_registry import get_registry
+
         cap = limit if limit is not None else self._config.max_result_rows
         cap = max(0, int(cap))
         started = time.monotonic()
 
         conn = self._connect()
+        # DuckDB's interrupt() is safe to call from another thread and tells
+        # the running query to stop ASAP; the original execute() then raises
+        # an "Interrupted" exception, which our outer error handling treats
+        # as a normal "query failed" outcome.
+        if query_id:
+            get_registry().register(
+                query_id,
+                conn.interrupt,
+                label=f"duckdb:{self._config.database}",
+            )
         try:
             cursor = conn.execute(sql)
             description = cursor.description
@@ -192,6 +213,8 @@ class DuckDBConnector(BaseConnector):
                 sql=sql,
             )
         finally:
+            if query_id:
+                get_registry().unregister(query_id)
             try:
                 conn.close()
             except Exception:

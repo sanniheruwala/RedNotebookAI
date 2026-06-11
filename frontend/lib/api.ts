@@ -195,6 +195,7 @@ export const api = {
       sql: string;
       limit?: number | null;
       confirm_write?: boolean;
+      query_id?: string;
     },
     signal?: AbortSignal,
   ) =>
@@ -203,6 +204,12 @@ export const api = {
       body: JSON.stringify(body),
       signal,
     }),
+
+  cancelQuery: (queryId: string) =>
+    http<{ cancelled: boolean; query_id: string }>(
+      `/query/cancel/${encodeURIComponent(queryId)}`,
+      { method: "POST" },
+    ),
 
   explainQuery: (body: { connection: Connection; sql: string }) =>
     http<RunQueryResponse>("/query/explain", {
@@ -285,10 +292,29 @@ export const api = {
     question: string;
     source_ids?: string[];
   }) =>
-    http<{ answer: string; provider: string; cited_source_ids: string[] }>(
+    http<{
+      answer: string;
+      provider: string;
+      cited_source_ids: string[];
+      citations: Array<{ marker: number; source_id: string; title: string }>;
+    }>(
       "/knowledge/chat",
       { method: "POST", body: JSON.stringify(body) }
     ),
+
+  knowledgeStudio: (body: {
+    notebook_id: string;
+    sections?: Array<"overview" | "faq" | "study_guide" | "suggested_questions">;
+    source_ids?: string[];
+  }) =>
+    http<{
+      provider: string;
+      sections: Record<string, string>;
+      citations: Array<{ marker: number; source_id: string; title: string }>;
+    }>("/knowledge/studio", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   addKnowledgeSource: (body: {
     notebook_id: string;
@@ -334,6 +360,65 @@ export const api = {
     http<{ templates: Array<{ id: string; title: string; description: string }> }>(
       "/infographics/templates"
     ),
+
+  notebookHistory: (notebookId: string) =>
+    http<{
+      notebook_id: string;
+      commits: Array<{
+        sha: string;
+        short_sha: string;
+        timestamp: number;
+        iso_timestamp: string;
+        author_name: string;
+        author_email: string;
+        message: string;
+      }>;
+    }>(`/notebooks/${encodeURIComponent(notebookId)}/history`),
+
+  notebookAtCommit: (notebookId: string, sha: string) =>
+    http<{ notebook: Notebook }>(
+      `/notebooks/${encodeURIComponent(notebookId)}/history/${encodeURIComponent(sha)}`,
+    ),
+
+  restoreNotebook: (notebookId: string, sha: string) =>
+    http<{
+      ok: boolean;
+      notebook_id: string;
+      path: string;
+      commit_sha: string | null;
+    }>(`/notebooks/${encodeURIComponent(notebookId)}/restore`, {
+      method: "POST",
+      body: JSON.stringify({ sha }),
+    }),
+
+  // Headless-browser render of an HTML infographic to PDF / PNG. Returns
+  // the raw binary so the caller can build a download blob — bypasses the
+  // generic http<T> wrapper because that one decodes JSON.
+  renderInfographic: async (body: {
+    html: string;
+    format: "pdf" | "png";
+    filename?: string;
+  }): Promise<Blob> => {
+    const res = await fetch(`${API_BASE}/infographics/render`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      let detail = `Render failed (${res.status})`;
+      try {
+        const text = await res.text();
+        const parsed = JSON.parse(text);
+        if (parsed?.detail) detail = String(parsed.detail);
+        else if (text) detail = text;
+      } catch {
+        // ignore
+      }
+      throw new Error(detail);
+    }
+    return res.blob();
+  },
 
   listNotebooks: () =>
     http<{ notebooks: Array<{ id: string; title: string; path: string }> }>("/notebooks"),

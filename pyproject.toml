@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rednotebook-ai"
-version = "0.7.14"
+version = "0.7.15"
 description = "Open-source AI data notebook for Trino and modern data platforms."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -54,6 +54,11 @@ dependencies = [
     # Ollama uses stdlib urllib so it doesn't need an extra package.
     "openai>=1.10",
     "anthropic>=0.18",
+    # Git-backed notebook history: each user's notebook directory is
+    # initialised as a repo and every save becomes a commit. Lets us
+    # show a "History" timeline + restore previous versions without a
+    # separate database.
+    "gitpython>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -61,6 +66,14 @@ dependencies = [
 # `pip install rednotebook-ai[ai-anthropic]` keep working as no-ops.
 ai-openai = []
 ai-anthropic = []
+# Headless-browser PDF / PNG export for infographics. Pulls in
+# Playwright (~10 MB Python package) and *requires* a one-time
+# Chromium install via ``playwright install chromium`` (~150 MB).
+# Kept optional so the base wheel stays small and air-gapped installs
+# without browser dependencies still work.
+exports = [
+    "playwright>=1.42",
+]
 # Legacy per-dialect extras: kept so old install commands like
 # `pip install rednotebook-ai[postgres]` keep working, but they're now
 # no-ops because every driver ships in the base dependencies above.

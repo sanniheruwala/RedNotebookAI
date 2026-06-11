@@ -28,12 +28,16 @@ def run_sql(
     limit: int | None = None,
     allow_write_queries: bool = False,
     confirm_write: bool = False,
+    query_id: str | None = None,
 ) -> CellExecution:
     """Run SQL with the safety guard applied.
 
     - BLOCKED → never executes.
     - WARN → executes only if ``confirm_write`` is also True.
     - ALLOWED → executes.
+
+    ``query_id`` is forwarded to the connector so it can hook into the
+    process-wide cancellation registry.
     """
     guard = check_sql(sql, allow_write_queries=allow_write_queries)
     if guard.verdict is SQLGuardVerdict.BLOCKED:
@@ -45,7 +49,7 @@ def run_sql(
             error="Write query requires explicit confirmation",
         )
     try:
-        result = connector.run_query(sql, limit=limit)
+        result = connector.run_query(sql, limit=limit, query_id=query_id)
         return CellExecution(guard=guard, result=result)
     except Exception as exc:  # pragma: no cover - depends on remote server
         return CellExecution(guard=guard, result=None, error=str(exc))

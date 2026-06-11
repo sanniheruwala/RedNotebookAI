@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Code2, Download, ImageIcon, Share2, X } from "lucide-react";
+import { Code2, Download, FileImage, FileText, ImageIcon, Loader2, Share2, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,6 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { api } from "@/lib/api";
 import type { InfographicBrief } from "@/lib/types";
 
 type Props = {
@@ -41,17 +43,41 @@ export function InfographicModal({
     setView(rawHtml ? "designed" : "brief");
   }, [rawHtml, brief?.title]);
 
+  const baseName = (brief?.title || "infographic")
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+
   const downloadHtml = () => {
     if (!rawHtml) return;
     const blob = new Blob([rawHtml], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(brief?.title || "infographic")
-      .toLowerCase()
-      .replace(/\s+/g, "-")}.html`;
+    a.download = `${baseName}.html`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const [exporting, setExporting] = React.useState<"pdf" | "png" | null>(null);
+  const downloadRendered = async (format: "pdf" | "png") => {
+    if (!rawHtml || exporting) return;
+    setExporting(format);
+    try {
+      const filename = `${baseName}.${format}`;
+      const blob = await api.renderInfographic({ html: rawHtml, format, filename });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Saved ${filename}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(message, { duration: 12000 });
+    } finally {
+      setExporting(null);
+    }
   };
 
   return (
@@ -105,6 +131,34 @@ export function InfographicModal({
               className="h-8 gap-1.5"
             >
               <Download className="h-3.5 w-3.5" /> HTML
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => downloadRendered("pdf")}
+              disabled={!rawHtml || exporting !== null}
+              className="h-8 gap-1.5"
+            >
+              {exporting === "pdf" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5" />
+              )}
+              {exporting === "pdf" ? "Rendering…" : "PDF"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => downloadRendered("png")}
+              disabled={!rawHtml || exporting !== null}
+              className="h-8 gap-1.5"
+            >
+              {exporting === "png" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileImage className="h-3.5 w-3.5" />
+              )}
+              {exporting === "png" ? "Rendering…" : "PNG"}
             </Button>
             <Button
               size="icon"

@@ -38,6 +38,9 @@ class AIRuntimeConfig(BaseModel):
     anthropic_model: str | None = None
     ollama_base_url: str | None = None
     ollama_model: str | None = None
+    cursor_api_key: str | None = None
+    cursor_base_url: str | None = None
+    cursor_model: str | None = None
     ai_context_mode: str | None = None
     ai_allow_sample_rows: bool | None = None
     ai_sample_row_limit: int | None = None
@@ -122,6 +125,9 @@ def get_ai_config(
         "anthropic_model": cfg.get("anthropic_model"),
         "ollama_base_url": cfg.get("ollama_base_url"),
         "ollama_model": cfg.get("ollama_model"),
+        "cursor_api_key": _mask_secret(cfg.get("cursor_api_key")),
+        "cursor_base_url": cfg.get("cursor_base_url"),
+        "cursor_model": cfg.get("cursor_model"),
         "ai_context_mode": cfg.get("ai_context_mode"),
         "ai_allow_sample_rows": cfg.get("ai_allow_sample_rows"),
         "ai_sample_row_limit": cfg.get("ai_sample_row_limit"),
@@ -148,7 +154,7 @@ def update_ai_config(
     current = store.get("ai", {}) or {}
     incoming = payload.model_dump(exclude_unset=True)
     # Preserve existing secret when the admin sends back the masked value.
-    for secret_field in ("openai_api_key", "anthropic_api_key"):
+    for secret_field in ("openai_api_key", "anthropic_api_key", "cursor_api_key"):
         if secret_field in incoming:
             value = incoming[secret_field]
             if isinstance(value, str) and "•" in value:
@@ -165,6 +171,7 @@ def update_ai_config(
         provider_for_key: dict[str, str] = {
             "anthropic_api_key": "anthropic",
             "openai_api_key": "openai",
+            "cursor_api_key": "cursor",
         }
         for key_field, provider_name in provider_for_key.items():
             if (
