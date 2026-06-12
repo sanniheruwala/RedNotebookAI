@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  Braces,
   CheckCircle2,
   ChevronDown,
   Copy,
@@ -21,6 +22,7 @@ import {
   Wand2,
   X,
 } from "lucide-react";
+import { format as sqlFormat } from "sql-formatter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
@@ -41,6 +43,25 @@ import type { OnMount } from "@monaco-editor/react";
 import type { editor as MonacoEditorNS } from "monaco-editor";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+
+// connector_type → sql-formatter dialect. Every connector we ship maps to
+// a real dialect 1:1; only Databricks needs translation (it speaks Spark
+// SQL under the hood). Fallback is the generic "sql" dialect.
+const SQL_DIALECT_FOR_CONNECTOR: Record<string, string> = {
+  duckdb: "duckdb",
+  trino: "trino",
+  postgresql: "postgresql",
+  mysql: "mysql",
+  mariadb: "mariadb",
+  sqlite: "sqlite",
+  mssql: "transactsql",
+  snowflake: "snowflake",
+  bigquery: "bigquery",
+  redshift: "redshift",
+  oracle: "plsql",
+  clickhouse: "clickhouse",
+  databricks: "spark",
+};
 
 export function SQLCell({ cell }: { cell: SQLCellType }) {
   const updateCell = useNotebookStore((s) => s.updateCell);
@@ -196,6 +217,40 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   const onChange = (next: string | undefined) =>
     updateCell(cell.id, (c) => (c.cell_type === "sql" ? { ...c, sql: next ?? "" } : c));
 
+  // Pretty-print the cell's SQL using the dialect that matches the active
+  // connection. Done client-side via `sql-formatter` so there's no round
+  // trip — the formatted text replaces the cell content immediately and
+  // autosave picks it up on the next debounce tick.
+  const formatSql = React.useCallback(() => {
+    const raw = cell.sql ?? "";
+    if (!raw.trim()) return;
+    const dialect =
+      (connection &&
+        SQL_DIALECT_FOR_CONNECTOR[
+          (connection as { connector_type?: string }).connector_type ?? ""
+        ]) ||
+      "sql";
+    try {
+      const pretty = sqlFormat(raw, {
+        language: dialect as Parameters<typeof sqlFormat>[1] extends infer T
+          ? T extends { language?: infer L }
+            ? L
+            : never
+          : never,
+        keywordCase: "upper",
+        tabWidth: 2,
+      });
+      if (pretty === raw) return;
+      updateCell(cell.id, (c) =>
+        c.cell_type === "sql" ? { ...c, sql: pretty } : c,
+      );
+    } catch (err) {
+      toast.error(
+        `Format failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }, [cell.id, cell.sql, connection, updateCell]);
+
   // Keep a ref to the latest run trigger so Monaco's one-time onMount
   // keybinding always invokes the current closure (state, connection, etc.).
   const runRef = React.useRef<() => void>(() => {});
@@ -348,6 +403,21 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
           >
             <Copy className="h-3.5 w-3.5" />
           </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={formatSql}
+                disabled={!cell.sql.trim()}
+                aria-label="Format SQL"
+              >
+                <Braces className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Format SQL — dialect-aware pretty-print</TooltipContent>
+          </Tooltip>
           <Button
             size="icon"
             variant="ghost"
