@@ -60,9 +60,6 @@
        — install the `[exports]` extra and run `playwright install
        chromium`, then use the PDF / PNG buttons in the infographic
        modal (v0.7.15).
-- ✅ Cursor AI provider — OpenAI-compatible endpoint with a
-       configurable `CURSOR_BASE_URL` so any compatible gateway works
-       (v0.7.15).
 - ✅ Explain SQL button replaced by a prominent "Summarize result"
        button that pulls a deep numeric briefing (headline, numbers
        worth knowing, key findings, distribution shape, anomalies,

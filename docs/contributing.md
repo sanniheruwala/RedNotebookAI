@@ -159,7 +159,7 @@ coherent.
 Some of these are non-negotiable for the project:
 
 - **Telemetry / phone-home.** RedNotebook AI does not call out without
-  the user asking it to. Provider SDKs (OpenAI / Anthropic / Cursor /
+  the user asking it to. Provider SDKs (OpenAI / Anthropic /
   Ollama) only fire when the user explicitly triggers an AI surface.
 - **Bypassing the read-only SQL guard.** The guard exists to keep
   exploratory queries from mutating warehouses. Changes that loosen
