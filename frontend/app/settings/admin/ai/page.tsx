@@ -51,15 +51,6 @@ const ANTHROPIC_MODELS = [
   { value: "claude-3-5-haiku-latest", label: "claude-3-5-haiku-latest" },
 ];
 
-// Cursor doesn't publish a public chat-completions catalogue yet — the
-// provider treats Cursor as an OpenAI-compatible endpoint, so admins can
-// type any model name their Cursor gateway accepts. The list below is
-// just a starting hint.
-const CURSOR_MODELS = [
-  { value: "cursor-small", label: "cursor-small — Cursor's default" },
-  { value: "cursor-fast", label: "cursor-fast — low-latency" },
-];
-
 export default function AdminAIPage() {
   const qc = useQueryClient();
   const config = useQuery({
@@ -113,7 +104,7 @@ export default function AdminAIPage() {
   });
 
   const clearSecret = (
-    field: "openai_api_key" | "anthropic_api_key" | "cursor_api_key"
+    field: "openai_api_key" | "anthropic_api_key"
   ) => set(field, null);
 
   const test = useMutation({
@@ -293,67 +284,6 @@ export default function AdminAIPage() {
             />
           </Field>
         </div>
-      </section>
-
-      <section className="card-premium space-y-3 p-5">
-        <div className="flex items-center justify-between">
-          <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Cursor
-          </div>
-          {current?.cursor_api_key && (
-            <Badge variant="outline" className="text-[10px]">
-              Key stored
-            </Badge>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="API key" className="col-span-2">
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                placeholder={
-                  current?.cursor_api_key ? "Keep existing key" : "sk-cursor-…"
-                }
-                value={
-                  draft.cursor_api_key ?? (current?.cursor_api_key ?? "")
-                }
-                onChange={(e) =>
-                  set("cursor_api_key", e.target.value || null)
-                }
-              />
-              {current?.cursor_api_key && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => clearSecret("cursor_api_key")}
-                  aria-label="Clear Cursor key"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          </Field>
-          <Field label="Base URL">
-            <Input
-              placeholder="https://api.cursor.com/v1"
-              value={view.cursor_base_url ?? ""}
-              onChange={(e) => set("cursor_base_url", e.target.value || null)}
-            />
-          </Field>
-          <Field label="Model">
-            <ModelPicker
-              listId="cursor-models"
-              options={CURSOR_MODELS}
-              placeholder="cursor-small"
-              value={view.cursor_model ?? ""}
-              onChange={(v) => set("cursor_model", v || null)}
-            />
-          </Field>
-        </div>
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Treated as an OpenAI-compatible endpoint. Point the base URL at any
-          gateway that speaks the OpenAI chat-completions protocol.
-        </p>
       </section>
 
       <section className="card-premium space-y-3 p-5">
