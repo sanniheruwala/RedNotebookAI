@@ -2,7 +2,18 @@
 
 import * as React from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronRight, Database, FolderTree, Loader2, RefreshCw, Search, Table2 } from "lucide-react";
+import {
+  ChevronRight,
+  Database,
+  FileSpreadsheet,
+  FileText,
+  FolderTree,
+  Loader2,
+  RefreshCw,
+  Search,
+  Table2,
+  Upload,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -43,8 +54,123 @@ export function MetadataExplorer() {
         />
       </div>
       <ScrollArea className="scrollbar-thin flex-1 px-2 pb-4">
+        <FilesCatalogNode connection={connection} filter={filter} />
         <CatalogsList connection={connection} filter={filter} />
       </ScrollArea>
+    </div>
+  );
+}
+
+/**
+ * Virtual "files" catalog. Renders only on DuckDB connections and only
+ * when the user has uploaded files. Each file appears as a table named
+ * after the sanitised view the DuckDB connector registers, with the
+ * original filename shown as a hint so users know what they're looking
+ * at. Clicking a row drops a `SELECT * FROM <table> LIMIT 100` into a
+ * new SQL cell — same shape as a real metadata table click.
+ */
+function FilesCatalogNode({
+  connection,
+  filter,
+}: {
+  connection: Connection;
+  filter: string;
+}) {
+  const [open, setOpen] = React.useState(true);
+  const isDuck = connection.connector_type === "duckdb";
+  const uploads = useQuery({
+    queryKey: ["uploads"],
+    queryFn: api.listUploads,
+    enabled: isDuck,
+  });
+
+  if (!isDuck) return null;
+  const files = uploads.data?.files ?? [];
+  if (!files.length) return null;
+
+  const filtered = filter
+    ? files.filter(
+        (f) =>
+          f.table_name.toLowerCase().includes(filter.toLowerCase()) ||
+          f.original_name.toLowerCase().includes(filter.toLowerCase()),
+      )
+    : files;
+
+  return (
+    <div className="mb-1.5 rounded-md border border-primary/15 bg-primary/[0.04]">
+      <TreeRow
+        icon={<Upload className="h-3.5 w-3.5 text-primary" />}
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+      >
+        <span className="flex items-center gap-1.5">
+          files
+          <span className="text-[10px] font-normal normal-case text-muted-foreground/70">
+            ({files.length} uploaded)
+          </span>
+        </span>
+      </TreeRow>
+      {open && (
+        <div className="ml-3 border-l border-primary/15">
+          <FilesTableList files={filtered} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilesTableList({
+  files,
+}: {
+  files: Array<{
+    id: string;
+    table_name: string;
+    original_name: string;
+    extension: string;
+  }>;
+}) {
+  const addCell = useNotebookStore((s) => s.addCell);
+  const updateCell = useNotebookStore((s) => s.updateCell);
+
+  const previewFile = (tableName: string) => {
+    const id = addCell("sql");
+    updateCell(id, (cell) =>
+      cell.cell_type === "sql"
+        ? { ...cell, sql: `SELECT *\nFROM ${tableName}\nLIMIT 100` }
+        : cell,
+    );
+  };
+
+  if (!files.length) {
+    return (
+      <div className="px-3 py-1 text-xs italic text-muted-foreground">
+        No matches
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-0.5 py-1 pl-2 pr-1">
+      {files.map((f) => {
+        const Icon =
+          f.extension === "csv" || f.extension === "tsv" || f.extension === "txt"
+            ? FileSpreadsheet
+            : FileText;
+        return (
+          <button
+            key={f.id}
+            onClick={() => previewFile(f.table_name)}
+            className="group flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            title={`${f.original_name} → SELECT * FROM ${f.table_name}`}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0 text-primary/80" />
+            <span className="truncate font-mono">{f.table_name}</span>
+            <span className="ml-auto hidden truncate text-[10px] text-muted-foreground/60 group-hover:inline">
+              {f.original_name}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
