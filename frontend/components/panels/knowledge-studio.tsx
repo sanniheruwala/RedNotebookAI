@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { BookOpen, HelpCircle, Lightbulb, Loader2, Sparkles, X } from "lucide-react";
+import { BookOpen, HelpCircle, Lightbulb, Loader2, Sparkles } from "lucide-react";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
 import {
@@ -104,15 +104,8 @@ export function KnowledgeStudioDialog({
               )}
               {data ? "Regenerate" : "Generate"}
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              aria-label="Close"
-              className="h-8 w-8"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {/* DialogContent's built-in DialogPrimitive.Close already renders
+                the top-right X — adding our own here doubled it. */}
           </div>
         </div>
 

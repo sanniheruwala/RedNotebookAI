@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Code2, Download, FileImage, FileText, ImageIcon, Loader2, Share2, X } from "lucide-react";
+import { Code2, Download, FileImage, FileText, ImageIcon, Loader2, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -160,15 +160,8 @@ export function InfographicModal({
               )}
               {exporting === "png" ? "Rendering…" : "PNG"}
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              aria-label="Close"
-              className="h-8 w-8"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {/* No explicit Close — DialogContent already renders the
+                top-right X via DialogPrimitive.Close. */}
           </div>
         </div>
 
