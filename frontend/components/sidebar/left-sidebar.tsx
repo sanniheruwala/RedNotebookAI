@@ -4,6 +4,7 @@ import * as React from "react";
 import { Database, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConnectionDialog } from "@/components/sidebar/connection-dialog";
+import { FilesSection } from "@/components/sidebar/files-section";
 import { MetadataExplorer } from "@/components/sidebar/metadata-explorer";
 import { NotebooksList } from "@/components/sidebar/notebooks-list";
 import { useConnectionStore } from "@/store/connection-store";
@@ -39,6 +40,8 @@ export function LeftSidebar() {
       </div>
 
       <NotebooksList />
+
+      <FilesSection />
 
       <div className="border-b border-t bg-muted/20 px-4 py-2 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         Metadata

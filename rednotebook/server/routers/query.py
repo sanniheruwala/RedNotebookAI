@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from rednotebook.auth.models import User
+from rednotebook.config.settings import Settings
 from rednotebook.notebook.runner import run_sql
 from rednotebook.security.sql_guard import check_sql
-from rednotebook.server.dependencies import build_connector
+from rednotebook.server.dependencies import (
+    build_connector,
+    require_user,
+    settings_dep,
+    user_uploads_dir,
+)
 from rednotebook.server.query_registry import get_registry
 from rednotebook.server.schemas import (
     ExplainQueryRequest,
@@ -41,8 +48,14 @@ def _result_payload(result) -> QueryResultPayload:  # type: ignore[no-untyped-de
 
 
 @router.post("/run", response_model=RunQueryResponse)
-def run(payload: RunQueryRequest) -> RunQueryResponse:
-    connector = build_connector(payload.connection)
+def run(
+    payload: RunQueryRequest,
+    user: User = Depends(require_user),
+    settings: Settings = Depends(settings_dep),
+) -> RunQueryResponse:
+    connector = build_connector(
+        payload.connection, uploads_dir=user_uploads_dir(settings, user)
+    )
     # All connectors are allowed full CRUD. The guard still classifies the
     # statement (so the response carries a verdict/keywords for UI hints) but
     # writes are never blocked or gated behind a confirmation step.
@@ -76,7 +89,11 @@ def cancel(query_id: str) -> dict[str, bool | str]:
 
 
 @router.post("/explain", response_model=RunQueryResponse)
-def explain(payload: ExplainQueryRequest) -> RunQueryResponse:
+def explain(
+    payload: ExplainQueryRequest,
+    user: User = Depends(require_user),
+    settings: Settings = Depends(settings_dep),
+) -> RunQueryResponse:
     guard = check_sql(payload.sql, allow_write_queries=True)
     if guard.is_blocked:
         return RunQueryResponse(
@@ -85,7 +102,9 @@ def explain(payload: ExplainQueryRequest) -> RunQueryResponse:
             result=None,
             error="; ".join(guard.reasons),
         )
-    connector = build_connector(payload.connection)
+    connector = build_connector(
+        payload.connection, uploads_dir=user_uploads_dir(settings, user)
+    )
     try:
         result = connector.explain_query(payload.sql)
         return RunQueryResponse(

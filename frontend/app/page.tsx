@@ -8,6 +8,7 @@ import { NotebookTabs } from "@/components/notebook/notebook-tabs";
 import { CommandPalette } from "@/components/command-palette";
 import { ResizableSidebar } from "@/components/resizable-sidebar";
 import { KnowledgeDrawer } from "@/components/panels/knowledge-drawer";
+import { FilesDropOverlay } from "@/components/sidebar/files-section";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { useConnectionMigration } from "@/hooks/use-connection-migration";
 import { useUIStore } from "@/store/ui-store";
@@ -66,6 +67,7 @@ export default function HomePage() {
         </div>
       </div>
       <CommandPalette />
+      <FilesDropOverlay />
     </div>
   );
 }

@@ -9,10 +9,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from rednotebook.auth.models import User
 from rednotebook.notebook.git_store import NotebookGitStore
 from rednotebook.notebook.models import Notebook, new_notebook
+from rednotebook.notebook.publish_store import PublishStore
+from rednotebook.notebook.publisher import render_notebook_html
 from rednotebook.notebook.storage import NotebookStorage
 from rednotebook.server.dependencies import (
     notebook_git_store_dep,
     notebook_storage_dep,
+    publish_store_dep,
     require_user,
 )
 from rednotebook.server.schemas import (
@@ -22,6 +25,10 @@ from rednotebook.server.schemas import (
     NotebookListItem,
     NotebookListResponse,
     NotebookResponse,
+    PublishedListResponse,
+    PublishedRecordPayload,
+    PublishNotebookRequest,
+    PublishNotebookResponse,
     RestoreNotebookRequest,
     SaveNotebookResponse,
 )
@@ -234,3 +241,77 @@ def restore_notebook(
         path=str(path),
         commit_sha=new_sha,
     )
+
+
+# ---------------------------------------------------------------------------
+# Publish (static HTML share link)
+# ---------------------------------------------------------------------------
+def _record_to_payload(rec) -> PublishedRecordPayload:  # type: ignore[no-untyped-def]
+    return PublishedRecordPayload(
+        token=rec.token,
+        notebook_id=rec.notebook_id,
+        title=rec.title,
+        created_at=rec.created_at,
+        url=f"/published/{rec.token}",
+    )
+
+
+@router.post("/{notebook_id}/publish", response_model=PublishNotebookResponse)
+def publish(
+    notebook_id: str,
+    payload: PublishNotebookRequest,
+    storage: NotebookStorage = Depends(notebook_storage_dep),
+    publishes: PublishStore = Depends(publish_store_dep),
+    user: User = Depends(require_user),
+) -> PublishNotebookResponse:
+    """Render the notebook + supplied per-cell result snapshots to a
+    self-contained HTML page and mint a share token for it."""
+    try:
+        notebook = storage.load(notebook_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    results = {
+        cell_id: snap.model_dump() for cell_id, snap in payload.results.items()
+    }
+    author = getattr(user, "name", None) or getattr(user, "email", None)
+    html_doc = render_notebook_html(notebook, results=results, author=author)
+    rec = publishes.publish(
+        user_id=user.id,
+        notebook_id=notebook.id,
+        title=notebook.metadata.title or "Untitled notebook",
+        html=html_doc,
+    )
+    return PublishNotebookResponse(
+        record=_record_to_payload(rec),
+        html_bytes=len(html_doc.encode("utf-8")),
+    )
+
+
+@router.get("/{notebook_id}/publish", response_model=PublishedListResponse)
+def list_publishes(
+    notebook_id: str,
+    publishes: PublishStore = Depends(publish_store_dep),
+    user: User = Depends(require_user),
+) -> PublishedListResponse:
+    """List all live share tokens for this notebook."""
+    return PublishedListResponse(
+        records=[
+            _record_to_payload(r)
+            for r in publishes.list_for_notebook(
+                user_id=user.id, notebook_id=notebook_id
+            )
+        ]
+    )
+
+
+@router.delete("/{notebook_id}/publish/{token}")
+def revoke_publish(
+    notebook_id: str,
+    token: str,
+    publishes: PublishStore = Depends(publish_store_dep),
+    user: User = Depends(require_user),
+) -> dict[str, bool]:
+    """Revoke a previously-minted share token."""
+    ok = publishes.revoke(user_id=user.id, token=token)
+    return {"ok": ok}

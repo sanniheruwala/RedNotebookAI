@@ -12,6 +12,7 @@ import {
   Loader2,
   Play,
   Settings2,
+  Share2,
   Sparkles,
   Upload,
 } from "lucide-react";
@@ -30,6 +31,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { UserMenu } from "@/components/topbar/user-menu";
 import { SettingsDialog } from "@/components/topbar/settings-dialog";
 import { NotebookHistoryDialog } from "@/components/topbar/notebook-history-dialog";
+import { PublishDialog } from "@/components/topbar/publish-dialog";
 import { useActiveNotebook, useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
 import { useUIStore } from "@/store/ui-store";
@@ -46,6 +48,7 @@ export function Topbar() {
   const knowledgeOpen = useUIStore((s) => s.knowledgeOpen);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [publishOpen, setPublishOpen] = React.useState(false);
 
   const openTab = useNotebookStore((s) => s.openTab);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
@@ -246,6 +249,20 @@ export function Topbar() {
           <TooltipTrigger asChild>
             <Button
               size="icon"
+              variant={publishOpen ? "default" : "ghost"}
+              aria-label="Publish notebook"
+              onClick={() => setPublishOpen(true)}
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Publish — public share link</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
               variant={historyOpen ? "default" : "ghost"}
               aria-label="Notebook history"
               onClick={() => setHistoryOpen(true)}
@@ -311,6 +328,7 @@ export function Topbar() {
         onOpenChange={setHistoryOpen}
         notebookId={notebook.id}
       />
+      <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} />
     </header>
   );
 }
