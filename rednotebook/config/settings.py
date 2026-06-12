@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     notebook_storage_dir: str = "local_data/notebooks"
     artifacts_dir: str = "artifacts"
     exports_dir: str = "exports"
+    # Disk root for published HTML snapshots (see notebook.publisher).
+    published_storage_dir: str = "local_data/published"
+    # Disk root for uploaded files (CSV / Excel / Parquet / ...).
+    uploads_storage_dir: str = "local_data/uploads"
 
     # Auth
     auth_enabled: bool = False

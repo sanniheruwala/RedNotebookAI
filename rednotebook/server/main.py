@@ -31,7 +31,9 @@ from rednotebook.server.routers import (
     metadata,
     notebooks,
     oauth,
+    public,
     query,
+    uploads,
 )
 
 # Register optional AI providers (their import calls register_provider).
@@ -153,6 +155,16 @@ def create_app() -> FastAPI:
         tags=["notebooks"],
         dependencies=protected,
     )
+    app.include_router(
+        uploads.router,
+        prefix="/api/files",
+        tags=["uploads"],
+        dependencies=protected,
+    )
+    # `public.router` exposes the unauthenticated `/published/{token}`
+    # endpoint. Deliberately NOT under `/api` and NOT behind `protected`
+    # so anyone holding a share link can view a published notebook.
+    app.include_router(public.router, tags=["public"])
     return app
 
 

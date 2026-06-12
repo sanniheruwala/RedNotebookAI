@@ -23,18 +23,6 @@ Query, visualize, profile, and explore data with beautiful charts, AI suggestion
        width="900" />
 </p>
 
-<details>
-<summary><sub>Screenshots — dark / light</sub></summary>
-
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/images/screenshot-light.png">
-  <img alt="RedNotebook AI: notebook canvas with SQL cell, metadata sidebar, and AI assistant panel" src="docs/images/screenshot-dark.png">
-</picture>
-
-![Light theme](docs/images/screenshot-light.png)
-
-</details>
-
 ---
 
 ## Why RedNotebook AI?
@@ -43,8 +31,10 @@ Modern data teams jump between five tools to answer one question. RedNotebook AI
 
 - **A real SQL workspace** with Monaco, AG Grid, drag-to-reorder cells, and keyboard shortcuts.
 - **Premium charts** powered by Apache ECharts with brand-aware theming.
-- **AI you can trust**, pluggable across OpenAI, Anthropic, Ollama, or a deterministic offline mock. Privacy-safe by default, schema-only context, PII masking, secrets stripped.
-- **NotebookLM-style knowledge layer.** Pull SQL, schemas, results, and charts into a notebook of sources. Ask grounded questions. Generate infographics.
+- **AI you can trust**, pluggable across OpenAI, Anthropic, Cursor, Ollama, or a deterministic offline mock. Privacy-safe by default, schema-only context, PII masking, secrets stripped.
+- **NotebookLM-style knowledge layer.** Pull SQL, schemas, results, and charts into a notebook of sources. Ask grounded questions with `[n]` citation chips. Generate infographics and a Studio briefing (overview / FAQ / study guide / suggested next questions).
+- **Drag-and-drop file uploads.** Drop a CSV, TSV, Parquet, or JSON file anywhere in the app — DuckDB attaches it instantly as a queryable table (`SELECT * FROM customers` Just Works).
+- **One-click publish.** Mint a public, no-account-needed share link from any notebook. The published page is a self-contained HTML snapshot — your live data never leaves your machine.
 - **Read-only by default.** A SQL guard backed by `sqlglot` blocks destructive statements unless you explicitly enable writes.
 - **Local-first.** Runs on your laptop with no login. Flip a single env var (`AUTH_ENABLED=true`) to enable multi-user mode with local email+password, GitHub OAuth, API tokens, per-user namespacing, and admin invites.
 

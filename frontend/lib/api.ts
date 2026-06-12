@@ -391,6 +391,113 @@ export const api = {
       body: JSON.stringify({ sha }),
     }),
 
+  publishNotebook: (
+    notebookId: string,
+    results: Record<
+      string,
+      {
+        columns: ColumnInfo[];
+        rows: Record<string, unknown>[];
+        row_count: number;
+        duration_seconds: number;
+      }
+    >,
+  ) =>
+    http<{
+      record: {
+        token: string;
+        notebook_id: string;
+        title: string;
+        created_at: string;
+        url: string;
+      };
+      html_bytes: number;
+    }>(`/notebooks/${encodeURIComponent(notebookId)}/publish`, {
+      method: "POST",
+      body: JSON.stringify({ results }),
+    }),
+
+  listPublishedForNotebook: (notebookId: string) =>
+    http<{
+      records: Array<{
+        token: string;
+        notebook_id: string;
+        title: string;
+        created_at: string;
+        url: string;
+      }>;
+    }>(`/notebooks/${encodeURIComponent(notebookId)}/publish`),
+
+  revokePublished: (notebookId: string, token: string) =>
+    http<{ ok: boolean }>(
+      `/notebooks/${encodeURIComponent(notebookId)}/publish/${encodeURIComponent(token)}`,
+      { method: "DELETE" },
+    ),
+
+  // ----- Uploaded files -----------------------------------------------------
+  listUploads: () =>
+    http<{
+      files: Array<{
+        id: string;
+        table_name: string;
+        original_name: string;
+        extension: string;
+        size_bytes: number;
+        uploaded_at: string;
+        path: string;
+      }>;
+      supported_extensions: string[];
+    }>("/files"),
+
+  uploadFile: async (file: File, tableName?: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (tableName) form.append("table_name", tableName);
+    const res = await fetch(`${API_BASE}/files/upload`, {
+      method: "POST",
+      body: form,
+      credentials: "include",
+    });
+    if (!res.ok) {
+      let detail = `Upload failed (${res.status})`;
+      try {
+        const parsed = await res.json();
+        if (parsed?.detail) detail = String(parsed.detail);
+      } catch {
+        // body wasn't json — fall through
+      }
+      throw new HttpError(res.status, detail);
+    }
+    return (await res.json()) as {
+      id: string;
+      table_name: string;
+      original_name: string;
+      extension: string;
+      size_bytes: number;
+      uploaded_at: string;
+      path: string;
+    };
+  },
+
+  renameUpload: (fileId: string, tableName: string) =>
+    http<{
+      id: string;
+      table_name: string;
+      original_name: string;
+      extension: string;
+      size_bytes: number;
+      uploaded_at: string;
+      path: string;
+    }>(`/files/${encodeURIComponent(fileId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ table_name: tableName }),
+    }),
+
+  deleteUpload: (fileId: string) =>
+    http<{ ok: boolean }>(`/files/${encodeURIComponent(fileId)}`, {
+      method: "DELETE",
+    }),
+
   // Headless-browser render of an HTML infographic to PDF / PNG. Returns
   // the raw binary so the caller can build a download blob — bypasses the
   // generic http<T> wrapper because that one decodes JSON.

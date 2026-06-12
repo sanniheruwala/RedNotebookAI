@@ -478,3 +478,38 @@ class NotebookHistoryResponse(BaseModel):
 
 class RestoreNotebookRequest(BaseModel):
     sha: str
+
+
+# ----- Publish ---------------------------------------------------------------
+class CellResultSnapshot(BaseModel):
+    """Per-cell result payload that the publisher embeds verbatim."""
+
+    columns: list[ColumnInfo] = Field(default_factory=list)
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    row_count: int = 0
+    duration_seconds: float = 0.0
+
+
+class PublishNotebookRequest(BaseModel):
+    """Per-cell snapshots provided by the live frontend so the published
+    static page captures the result state the user saw — not whatever
+    the live source returns at view time."""
+
+    results: dict[str, CellResultSnapshot] = Field(default_factory=dict)
+
+
+class PublishedRecordPayload(BaseModel):
+    token: str
+    notebook_id: str
+    title: str
+    created_at: str
+    url: str  # relative URL — frontend rewrites to absolute as needed
+
+
+class PublishNotebookResponse(BaseModel):
+    record: PublishedRecordPayload
+    html_bytes: int
+
+
+class PublishedListResponse(BaseModel):
+    records: list[PublishedRecordPayload]

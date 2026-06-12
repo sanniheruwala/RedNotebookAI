@@ -83,18 +83,36 @@
        via a generic SQLAlchemy backend)
 - ✅ Drivers bundled by default — no `pip install ...[extras]` step
        needed (v0.7.5)
+- ✅ Drag-and-drop file uploads — CSV, TSV, Parquet, JSON, JSONL,
+       NDJSON. Files are registered as DuckDB views automatically so
+       users query them by table name immediately after dropping
+       (v0.7.16).
 - 🟡 Athena (not yet)
-- 🟡 CSV / Excel / Google Sheets upload (not yet)
+- 🟡 Excel (.xlsx) — needs the DuckDB `excel` extension to be
+       autoloaded.
+- 🟡 Google Sheets upload (not yet — requires OAuth).
 
 ## Phase 4. Collaboration / SaaS — 🟡 in progress
 
 - ✅ Rate limiting via `slowapi` on auth + AI routes (already shipped).
 - ✅ Audit log (`rednotebook/audit/log.py`) — surfaced in the admin UI.
-- 🟡 Git-backed notebooks
-- 🟡 Sharing + comments
+- ✅ Git-backed notebooks — per-user notebook directory is a real git
+       repo with autosave-driven commits + a History dialog that
+       restores any version (v0.7.15).
+- ✅ One-click static HTML share links — `POST /api/notebooks/{id}/
+       publish` mints a token; the page is served unauthenticated at
+       `/published/{token}`. Notebook + result snapshots travel as a
+       single self-contained HTML doc (v0.7.16).
+- 🟡 Sharing + threaded comments on the *live* notebook (the static
+       publish covers read-only sharing today).
 - 🟡 Scheduled queries / alerts
-- 🟡 Dashboard publishing
+- 🟡 Dashboard publishing (notebook → parameterised app with input
+       widgets — the publish HTML is the foundation).
 - 🟡 dbt + Airflow integrations
 - 🟡 Semantic layer
+- 🟡 Cross-source joins via DuckDB ATTACH — design notes in
+       [docs/design/cross-source-joins.md](design/cross-source-joins.md).
+- 🟡 Reactive notebooks (Marimo-style auto-rerun of downstream cells) —
+       design notes in [docs/design/reactive-notebooks.md](design/reactive-notebooks.md).
 - 🟡 Full RBAC / SSO (partial — GitHub OAuth + admin invites shipped).
 - 🟡 Hosted SaaS version

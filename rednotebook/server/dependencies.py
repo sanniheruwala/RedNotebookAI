@@ -51,8 +51,15 @@ def build_trino_connector(payload: TrinoConnectionPayload) -> TrinoConnector:
     return TrinoConnector(cfg)
 
 
-def build_connector(payload):  # type: ignore[no-untyped-def]
+def build_connector(payload, *, uploads_dir: Path | None = None):  # type: ignore[no-untyped-def]
     """Build a connector from any ConnectionPayload.
+
+    ``uploads_dir`` is the per-user directory containing drag-drop file
+    uploads. When set, the DuckDB connector registers a view per file
+    before running each query so users get ``SELECT * FROM customers``
+    immediately after dropping ``customers.csv``. Callers without user
+    context (metadata-only flows that don't run user SQL) can leave it
+    ``None``.
 
     Dispatches on the discriminator field. Trino and DuckDB keep their own
     bespoke connector classes; the remaining 11 dialects share the generic
@@ -76,6 +83,7 @@ def build_connector(payload):  # type: ignore[no-untyped-def]
             read_only=payload.read_only,
             working_dir=payload.working_dir,
             max_result_rows=payload.max_result_rows,
+            uploads_dir=str(uploads_dir) if uploads_dir else None,
         )
         return DuckDBConnector(cfg)
     if connector_type in CONNECTOR_BY_TYPE:
@@ -87,6 +95,11 @@ def build_connector(payload):  # type: ignore[no-untyped-def]
         cfg = config_cls(**raw)
         return connector_cls(cfg)
     return build_trino_connector(payload)
+
+
+def user_uploads_dir(settings: Settings, user: User) -> Path:
+    """Resolve the per-user uploads directory used for drag-drop files."""
+    return Path(settings.uploads_storage_dir) / user.id
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +210,30 @@ def notebook_git_store_dep(
 
     base = Path(settings.notebook_storage_dir) / user.id
     return NotebookGitStore(base)
+
+
+def publish_store_dep(settings: Settings = Depends(settings_dep)):
+    """Singleton :class:`PublishStore` shared across users.
+
+    Per-user scoping happens inside the store via ``user_id`` on each
+    record — keeping the underlying directory shared lets the
+    unauthenticated ``GET /published/{token}`` route resolve a token
+    without first knowing which user owns it.
+    """
+    from rednotebook.notebook.publish_store import PublishStore
+
+    return PublishStore(settings.published_storage_dir)
+
+
+def upload_store_dep(
+    settings: Settings = Depends(settings_dep),
+    user: User = Depends(require_user),
+):
+    """Per-user :class:`UploadStore` for drag-drop file uploads."""
+    from rednotebook.uploads.store import UploadStore
+
+    base = Path(settings.uploads_storage_dir) / user.id
+    return UploadStore(base)
 
 
 def connection_store_dep(settings: Settings = Depends(settings_dep)):

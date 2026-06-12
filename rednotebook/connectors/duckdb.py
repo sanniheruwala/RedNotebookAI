@@ -42,8 +42,26 @@ class DuckDBConnectionConfig(ConnectionConfig):
     # Working directory used for relative paths in queries (e.g. read_csv_auto).
     working_dir: str | None = None
     max_result_rows: int = 10_000
+    # Per-user uploads directory. When set, the connector reads its manifest
+    # and registers a view per file so `SELECT * FROM customers` works
+    # immediately after the user drops customers.csv.
+    uploads_dir: str | None = None
 
     model_config = {"populate_by_name": True, "extra": "ignore", "frozen": True}
+
+
+#: DuckDB reader function for each supported upload extension. The
+#: connector picks one of these when registering a CREATE OR REPLACE
+#: VIEW for an uploaded file.
+_DUCKDB_READER_FOR_EXT: dict[str, str] = {
+    "csv": "read_csv_auto",
+    "tsv": "read_csv_auto",
+    "txt": "read_csv_auto",
+    "json": "read_json_auto",
+    "jsonl": "read_json_auto",
+    "ndjson": "read_json_auto",
+    "parquet": "read_parquet",
+}
 
 
 class DuckDBConnector(BaseConnector):
@@ -74,7 +92,47 @@ class DuckDBConnector(BaseConnector):
                 conn.execute(f"SET file_search_path = '{wd}'")
             except Exception:
                 pass
+        # Register the user's uploaded files as views *before* the user's
+        # query runs. Each one is `CREATE OR REPLACE VIEW <table_name> AS
+        # SELECT * FROM read_<ext>('/abs/path')`. Failures per-file don't
+        # abort the connect — a corrupt CSV shouldn't kill all queries.
+        self._register_uploaded_views(conn)
         return conn
+
+    def _register_uploaded_views(self, conn) -> None:  # type: ignore[no-untyped-def]
+        uploads_dir = self._config.uploads_dir
+        if not uploads_dir:
+            return
+        # Lazy-import to keep the connectors layer free of cross-package deps
+        # for environments that disable uploads entirely.
+        try:
+            from rednotebook.uploads.store import UploadStore
+        except Exception:
+            return
+        try:
+            store = UploadStore(uploads_dir)
+            files = store.list_files()
+        except Exception:
+            return
+        for f in files:
+            reader = _DUCKDB_READER_FOR_EXT.get(f.extension)
+            if not reader:
+                continue
+            # File paths are user-scoped under uploads_dir; the table name
+            # is sanitized at write time, so quoting is the only escape we
+            # need here. DuckDB uses single quotes for string literals.
+            safe_path = f.path.replace("'", "''")
+            sql = (
+                f'CREATE OR REPLACE VIEW "{f.table_name}" AS '
+                f"SELECT * FROM {reader}('{safe_path}')"
+            )
+            try:
+                conn.execute(sql)
+            except Exception:
+                # One bad file shouldn't break every other view. Surface
+                # the error only if the user actually queries that table
+                # (DuckDB will then report "table not found").
+                continue
 
     @staticmethod
     def _columns_from_description(description) -> list[ColumnInfo]:  # type: ignore[no-untyped-def]
