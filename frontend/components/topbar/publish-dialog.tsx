@@ -11,7 +11,6 @@ import {
   Loader2,
   Share2,
   Trash2,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -130,15 +129,8 @@ export function PublishDialog({ open, onOpenChange }: Props) {
               </div>
             </div>
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
-            aria-label="Close"
-            className="h-8 w-8"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          {/* No explicit Close — DialogContent's built-in DialogPrimitive.Close
+              renders the top-right X. */}
         </div>
 
         {!isReal ? (

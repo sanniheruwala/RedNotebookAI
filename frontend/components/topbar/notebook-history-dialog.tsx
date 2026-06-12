@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { History, Loader2, RotateCcw, X } from "lucide-react";
+import { GitCommitVertical, History, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -94,7 +94,7 @@ export function NotebookHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[78vh] max-w-4xl gap-0 overflow-hidden p-0 sm:rounded-2xl">
+      <DialogContent className="grid h-[78vh] max-w-4xl grid-rows-[auto_1fr] gap-0 overflow-hidden p-0 sm:rounded-2xl">
         <DialogTitle className="sr-only">Notebook history</DialogTitle>
         <DialogDescription className="sr-only">
           Git-backed history of every save. Pick a commit to preview or restore.
@@ -114,24 +114,17 @@ export function NotebookHistoryDialog({
               </div>
             </div>
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
-            aria-label="Close"
-            className="h-8 w-8"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          {/* Dialog X lives at the top-right via DialogPrimitive.Close in
+              the base DialogContent — don't render a second one. */}
         </div>
 
         {!isReal ? (
-          <div className="flex h-full items-center justify-center p-10 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center p-10 text-sm text-muted-foreground">
             Open a notebook first.
           </div>
         ) : (
-          <div className="grid h-full grid-cols-[280px_1fr] overflow-hidden">
-            <aside className="overflow-hidden border-r">
+          <div className="grid min-h-0 grid-cols-[280px_1fr] overflow-hidden">
+            <aside className="flex min-h-0 flex-col overflow-hidden border-r bg-muted/10">
               {history.isPending ? (
                 <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -142,12 +135,9 @@ export function NotebookHistoryDialog({
                   {(history.error as Error).message}
                 </div>
               ) : (history.data?.commits ?? []).length === 0 ? (
-                <div className="p-4 text-xs text-muted-foreground">
-                  No saved versions yet. Hit save (or just edit — autosave
-                  fires within a second or two) to start a history.
-                </div>
+                <HistoryEmpty />
               ) : (
-                <ScrollArea className="scrollbar-thin h-full">
+                <ScrollArea className="scrollbar-thin flex-1">
                   <ul className="p-2">
                     {history.data!.commits.map((c) => (
                       <CommitRow
@@ -161,7 +151,7 @@ export function NotebookHistoryDialog({
                 </ScrollArea>
               )}
             </aside>
-            <section className="flex flex-col overflow-hidden">
+            <section className="flex min-h-0 flex-col overflow-hidden">
               {!selectedSha ? (
                 <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
                   Pick a commit on the left to preview it.
@@ -217,6 +207,22 @@ export function NotebookHistoryDialog({
   );
 }
 
+function HistoryEmpty() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+      <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+        <GitCommitVertical className="h-5 w-5" />
+      </div>
+      <div className="text-sm font-medium">No saved versions yet</div>
+      <p className="max-w-[18rem] text-[11px] leading-relaxed text-muted-foreground">
+        Edit any cell or hit <kbd className="rounded border bg-muted/40 px-1 py-px font-mono text-[10px]">⌘S</kbd>{" "}
+        — autosave fires within a second and lands the first commit. Every
+        save adds a new checkpoint you can restore from here.
+      </p>
+    </div>
+  );
+}
+
 function CommitRow({
   commit,
   selected,
@@ -231,19 +237,23 @@ function CommitRow({
       <button
         type="button"
         onClick={onSelect}
-        className={`flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent ${
-          selected ? "bg-accent" : ""
+        className={`flex w-full flex-col items-start gap-1 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-accent ${
+          selected
+            ? "bg-primary/10 ring-1 ring-inset ring-primary/30"
+            : ""
         }`}
       >
-        <div className="line-clamp-2 w-full font-medium">{commit.message}</div>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <code className="rounded bg-muted/60 px-1 font-mono">
+        <div className={`line-clamp-2 w-full text-[12.5px] font-medium leading-snug ${selected ? "text-foreground" : "text-foreground/90"}`}>
+          {commit.message}
+        </div>
+        <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+          <code className="rounded bg-muted/60 px-1 py-px font-mono">
             {commit.short_sha}
           </code>
-          <span>·</span>
-          <span>{commit.author_name || "anonymous"}</span>
-          <span>·</span>
-          <span>{relativeTime(commit.iso_timestamp)}</span>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="truncate">{commit.author_name || "anonymous"}</span>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="whitespace-nowrap">{relativeTime(commit.iso_timestamp)}</span>
         </div>
       </button>
     </li>
