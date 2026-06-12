@@ -1,0 +1,37 @@
+{
+  "id": "53a8813d77a944b2b35c797976ea6035",
+  "metadata": {
+    "title": "Q3 weekly orders by region",
+    "description": "Demo notebook \u2014 synthetic orders rolled up by week and region.",
+    "tags": [
+      "demo",
+      "duckdb",
+      "orders"
+    ],
+    "author": "RedNotebook AI",
+    "schema_version": 1
+  },
+  "cells": [
+    {
+      "id": "01cc88b408d6410f869957350a0b0d6c",
+      "created_at": "2026-06-11T17:01:32.886526Z",
+      "updated_at": "2026-06-11T17:01:32.886672Z",
+      "cell_type": "markdown",
+      "source": "## Q3 weekly orders by region\n\nA quick weekly cut of the synthetic orders dataset \u2014 *NA, EMEA, APAC, LATAM*\nacross the last 90 days. After running, peek at the **Profile** tab for\nper-column distributions, then hit **Summarize result** for the AI brief."
+    },
+    {
+      "id": "e28b470a7a6e4c34b0116967bdf59d04",
+      "created_at": "2026-06-11T17:01:32.886681Z",
+      "updated_at": "2026-06-11T17:01:32.886682Z",
+      "cell_type": "sql",
+      "connection_name": null,
+      "sql": "SELECT\n  date_trunc('week', order_date)::date AS week,\n  region,\n  COUNT(*)                             AS orders,\n  ROUND(SUM(revenue), 2)               AS revenue,\n  ROUND(AVG(revenue), 2)               AS avg_order\nFROM (\n  SELECT\n    DATE '2025-01-01' + INTERVAL (i % 90) DAY AS order_date,\n    (['NA', 'EMEA', 'APAC', 'LATAM'])[1 + (i % 4)] AS region,\n    20 + (i % 17) * 11 + RANDOM() * 30 AS revenue\n  FROM range(0, 800) t(i)\n)\nGROUP BY 1, 2\nORDER BY 1, 2",
+      "limit": null,
+      "last_result_ref": null,
+      "chart_config": null,
+      "notes": null
+    }
+  ],
+  "created_at": "2026-06-11T17:01:32.887121Z",
+  "updated_at": "2026-06-11T17:01:32.887122Z"
+}

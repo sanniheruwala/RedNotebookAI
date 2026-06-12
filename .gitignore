@@ -78,3 +78,9 @@ secrets/
 .claude/
 CLAUDE.md
 claude.md
+
+# Demo recording artifacts. The reproducible script + seed notebook are
+# checked in (see demo/record_demo.py); the raw WebMs, debug PNGs, and
+# alternate GIF encodings are not — they regenerate on every run.
+demo/_video/
+demo/*.gif

@@ -17,13 +17,19 @@ Query, visualize, profile, and explore data with beautiful charts, AI suggestion
 
 </div>
 
+<p align="center">
+  <img src="docs/images/rednotebook-v0.7.15.gif"
+       alt="10-second demo: open the Q3 demo notebook, run SQL against DuckDB, inspect per-column histograms in the Profile tab, then summarize the result with AI."
+       width="900" />
+</p>
+
+<details>
+<summary><sub>Screenshots — dark / light</sub></summary>
+
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/images/screenshot-light.png">
   <img alt="RedNotebook AI: notebook canvas with SQL cell, metadata sidebar, and AI assistant panel" src="docs/images/screenshot-dark.png">
 </picture>
-
-<details>
-<summary><sub>Light theme preview</sub></summary>
 
 ![Light theme](docs/images/screenshot-light.png)
 
