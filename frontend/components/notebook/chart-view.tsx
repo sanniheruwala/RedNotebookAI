@@ -170,18 +170,50 @@ export function ChartView({
     );
   }
 
+  // SVG renderer for vector-crisp output at any DPR + screenshot fidelity.
+  // For very large series (> ~3k points) ECharts performs better with
+  // canvas; the threshold here is conservative enough that almost every
+  // analyst-shaped result lands on SVG. Canvas fallback always honours
+  // the device pixel ratio so it doesn't look fuzzy on Retina.
+  const pointCount = pointEstimate(option);
+  const useSvg = pointCount <= 3000;
+  const dpr =
+    typeof window !== "undefined" ? Math.max(2, window.devicePixelRatio || 2) : 2;
+
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+    <div
+      className={`overflow-hidden rounded-2xl border bg-card ring-1 ring-inset ${
+        isDark
+          ? "border-border/60 ring-white/5 shadow-[0_18px_48px_-24px_rgba(0,0,0,0.55)]"
+          : "border-border ring-black/[0.03] shadow-[0_18px_40px_-20px_rgba(15,23,42,0.18)]"
+      }`}
+    >
       <ReactECharts
         option={option}
-        style={{ height: 380, width: "100%" }}
+        style={{ height: 460, width: "100%" }}
         notMerge
         lazyUpdate
-        opts={{ renderer: "canvas" }}
+        opts={useSvg ? { renderer: "svg" } : { renderer: "canvas", devicePixelRatio: dpr }}
         theme={isDark ? "dark" : undefined}
       />
     </div>
   );
+}
+
+/**
+ * Best-effort guess at how many points the chart will draw — used to
+ * decide between SVG (crisp) and canvas (faster for huge series).
+ * Doesn't need to be exact; we err on the SVG side.
+ */
+function pointEstimate(option: Record<string, unknown> | null): number {
+  if (!option) return 0;
+  const series = (option as { series?: unknown[] }).series ?? [];
+  let total = 0;
+  for (const s of series) {
+    const data = (s as { data?: unknown[] }).data;
+    if (Array.isArray(data)) total += data.length;
+  }
+  return total;
 }
 
 function baseTooltip(theme: PaletteTheme) {
@@ -190,14 +222,15 @@ function baseTooltip(theme: PaletteTheme) {
     backgroundColor: theme.tooltipBg,
     borderColor: theme.tooltipBorder,
     borderWidth: 1,
-    padding: [10, 12],
+    padding: [12, 14],
     textStyle: {
       color: theme.text,
       fontFamily: "var(--font-sans), -apple-system, sans-serif",
-      fontSize: 12,
+      fontSize: 13,
+      lineHeight: 18,
     },
     extraCssText:
-      "backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 10px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);",
+      "backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%); border-radius: 12px; box-shadow: 0 18px 48px rgba(15, 23, 42, 0.28);",
     axisPointer: {
       type: "shadow" as const,
       shadowStyle: { color: theme.splitLine },
@@ -209,21 +242,22 @@ function baseAxis(theme: PaletteTheme, kind: "category" | "value", isX: boolean)
   return {
     type: kind,
     boundaryGap: kind === "category" ? true : undefined,
-    axisLine: { lineStyle: { color: theme.axisLine } },
+    axisLine: { lineStyle: { color: theme.axisLine, width: 1 } },
     axisTick: { show: false },
     axisLabel: {
       color: theme.mutedText,
-      fontSize: 11,
+      fontSize: 12,
       fontFamily: "var(--font-mono), ui-monospace, monospace",
+      fontWeight: 500,
       hideOverlap: true,
-      margin: 12,
+      margin: 14,
       formatter: formatTick,
     },
     splitLine: {
       show: !isX,
-      lineStyle: { color: theme.splitLine, type: "dashed" as const },
+      lineStyle: { color: theme.splitLine, type: "dashed" as const, width: 1 },
     },
-    nameTextStyle: { color: theme.mutedText, fontSize: 11 },
+    nameTextStyle: { color: theme.mutedText, fontSize: 12, fontWeight: 500 },
   };
 }
 
@@ -263,13 +297,14 @@ function buildOption(
   const title = config.title
     ? {
         text: config.title,
-        left: 16,
-        top: 14,
+        left: 20,
+        top: 16,
         textStyle: {
           color: theme.text,
           fontFamily: "var(--font-sans), sans-serif",
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: 600,
+          letterSpacing: -0.2,
         },
       }
     : undefined;
@@ -321,17 +356,17 @@ function buildOption(
     smooth,
     smoothMonotone: "x" as const,
     showSymbol: data.length <= 60,
-    symbolSize: 6,
+    symbolSize: 8,
     sampling: "lttb" as const,
     data: treatXAsTime
       ? data.map((d) => [new Date(d.x).getTime(), d.y])
       : yValues,
-    lineStyle: { width: 2.5, color: theme.primary },
-    itemStyle: { color: theme.primary, borderColor: theme.surface, borderWidth: 2 },
+    lineStyle: { width: 3, color: theme.primary, cap: "round" as const, join: "round" as const },
+    itemStyle: { color: theme.primary, borderColor: theme.surface, borderWidth: 2.5 },
     emphasis: {
       focus: "series" as const,
-      itemStyle: { borderWidth: 3 },
-      lineStyle: { width: 3 },
+      itemStyle: { borderWidth: 3.5 },
+      lineStyle: { width: 3.5 },
     },
     areaStyle: area
       ? {
@@ -400,9 +435,9 @@ function buildOption(
           {
             type: "bar" as const,
             data: yValues,
-            barMaxWidth: 36,
+            barMaxWidth: 48,
             itemStyle: {
-              borderRadius: [6, 6, 0, 0],
+              borderRadius: [8, 8, 0, 0],
               color: {
                 type: "linear",
                 x: 0,
@@ -411,15 +446,18 @@ function buildOption(
                 y2: 1,
                 colorStops: [
                   { offset: 0, color: theme.primary },
-                  { offset: 1, color: `${theme.primary}66` },
+                  { offset: 1, color: `${theme.primary}55` },
                 ],
               },
+              shadowBlur: 6,
+              shadowColor: `${theme.primary}22`,
+              shadowOffsetY: 2,
             },
             emphasis: {
               focus: "series" as const,
               itemStyle: {
-                shadowBlur: 12,
-                shadowColor: `${theme.primary}66`,
+                shadowBlur: 18,
+                shadowColor: `${theme.primary}77`,
               },
             },
             label:
@@ -427,8 +465,9 @@ function buildOption(
                 ? {
                     show: true,
                     position: "top" as const,
-                    color: theme.mutedText,
-                    fontSize: 11,
+                    color: theme.text,
+                    fontSize: 12,
+                    fontWeight: 600,
                     formatter: (p: { value: number }) => formatTick(p.value),
                   }
                 : { show: false },
@@ -476,16 +515,19 @@ function buildOption(
           {
             type: "scatter" as const,
             data: data.map((d) => [Number(d.x) || 0, d.y]),
-            symbolSize: 10,
+            symbolSize: 14,
             itemStyle: {
               color: theme.primary,
-              opacity: 0.75,
+              opacity: 0.8,
               borderColor: theme.surface,
-              borderWidth: 1.5,
-              shadowBlur: 8,
-              shadowColor: `${theme.primary}40`,
+              borderWidth: 2,
+              shadowBlur: 14,
+              shadowColor: `${theme.primary}55`,
             },
-            emphasis: { itemStyle: { opacity: 1 } },
+            emphasis: {
+              itemStyle: { opacity: 1, shadowBlur: 24, shadowColor: `${theme.primary}88` },
+              scale: 1.15,
+            },
           },
         ],
       };
@@ -506,36 +548,40 @@ function buildOption(
         },
         legend: {
           orient: "vertical" as const,
-          right: 16,
+          right: 20,
           top: "middle" as const,
-          textStyle: { color: theme.mutedText, fontSize: 11 },
-          itemWidth: 10,
-          itemHeight: 10,
+          textStyle: { color: theme.mutedText, fontSize: 12, fontWeight: 500 },
+          itemWidth: 12,
+          itemHeight: 12,
+          itemGap: 10,
           icon: "circle",
         },
         series: [
           {
             type: "pie" as const,
-            radius: type === "donut" ? ["48%", "76%"] : [0, "70%"],
+            radius: type === "donut" ? ["52%", "82%"] : [0, "76%"],
             center: ["38%", "52%"],
             avoidLabelOverlap: true,
-            padAngle: 2,
+            padAngle: 3,
             itemStyle: {
               borderColor: isDarkSurface(theme) ? "#0b0d12" : "#ffffff",
-              borderWidth: 2,
-              borderRadius: 6,
+              borderWidth: 3,
+              borderRadius: 8,
+              shadowBlur: 8,
+              shadowColor: "rgba(0,0,0,0.12)",
             },
             label: {
               show: type === "pie" && data.length <= 8,
               color: theme.text,
-              fontSize: 11,
+              fontSize: 12,
+              fontWeight: 500,
               formatter: "{b}\n{d}%",
             },
-            labelLine: { length: 12, length2: 8, smooth: true },
+            labelLine: { length: 14, length2: 10, smooth: true },
             emphasis: {
               scale: true,
-              scaleSize: 6,
-              itemStyle: { shadowBlur: 18, shadowColor: `${theme.primary}55` },
+              scaleSize: 8,
+              itemStyle: { shadowBlur: 24, shadowColor: `${theme.primary}77` },
             },
             data: data.map((d, i) => ({
               name: d.x,
@@ -551,8 +597,10 @@ function buildOption(
                     style: {
                       text: `${formatTick(total)}\nTotal`,
                       textAlign: "center",
-                      fontSize: 14,
-                      fill: theme.mutedText,
+                      fontSize: 18,
+                      fontWeight: 600,
+                      fill: theme.text,
+                      lineHeight: 22,
                     },
                   },
                 }
