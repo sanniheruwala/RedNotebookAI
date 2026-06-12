@@ -31,7 +31,7 @@ Modern data teams jump between five tools to answer one question. RedNotebook AI
 
 - **A real SQL workspace** with Monaco, AG Grid, drag-to-reorder cells, and keyboard shortcuts.
 - **Premium charts** powered by Apache ECharts with brand-aware theming.
-- **AI you can trust**, pluggable across OpenAI, Anthropic, Cursor, Ollama, or a deterministic offline mock. Privacy-safe by default, schema-only context, PII masking, secrets stripped.
+- **AI you can trust**, pluggable across OpenAI, Anthropic, Ollama, or a deterministic offline mock. Privacy-safe by default, schema-only context, PII masking, secrets stripped.
 - **NotebookLM-style knowledge layer.** Pull SQL, schemas, results, and charts into a notebook of sources. Ask grounded questions with `[n]` citation chips. Generate infographics and a Studio briefing (overview / FAQ / study guide / suggested next questions).
 - **Drag-and-drop file uploads.** Drop a CSV, TSV, Parquet, or JSON file anywhere in the app — DuckDB attaches it instantly as a queryable table (`SELECT * FROM customers` Just Works).
 - **One-click publish.** Mint a public, no-account-needed share link from any notebook. The published page is a self-contained HTML snapshot — your live data never leaves your machine.
@@ -165,7 +165,6 @@ Custom HTTP headers, session properties, query timeouts, and result limits are a
 | **OpenAI** | `AI_PROVIDER=openai`, `OPENAI_API_KEY=sk-…` |
 | **Anthropic** | `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=sk-ant-…` |
 | **Ollama** (local) | `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://localhost:11434` |
-| **Cursor** (OpenAI-compatible) | `AI_PROVIDER=cursor`, `CURSOR_API_KEY=…`, `CURSOR_BASE_URL=https://api.cursor.com/v1` |
 
 Privacy defaults:
 

@@ -46,9 +46,6 @@ export type AIRuntimeConfig = {
   anthropic_model: string | null;
   ollama_base_url: string | null;
   ollama_model: string | null;
-  cursor_api_key: string | null;
-  cursor_base_url: string | null;
-  cursor_model: string | null;
   ai_context_mode: string | null;
   ai_allow_sample_rows: boolean | null;
   ai_sample_row_limit: number | null;

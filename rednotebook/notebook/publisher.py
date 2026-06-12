@@ -17,7 +17,6 @@ Pygments to keep the dep footprint flat.
 from __future__ import annotations
 
 import html
-import json
 from datetime import datetime
 from typing import Any
 
@@ -105,11 +104,24 @@ table.result th {
   font-weight: 600; color: var(--text); white-space: nowrap;
 }
 table.result tr:last-child td { border-bottom: none; }
-table.result td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.result td.num, table.result th.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.result td.null { color: var(--muted); font-style: italic; opacity: 0.6; }
+table.result td.bool { color: #c084fc; font-variant-numeric: tabular-nums; }
+table.result td.trunc span { cursor: help; border-bottom: 1px dotted var(--muted); }
+table.result th .type-hint {
+  display: block; margin-top: 1px;
+  font-size: 10px; font-weight: 400;
+  color: var(--muted); letter-spacing: 0.06em;
+  text-transform: lowercase;
+}
 .result-meta {
   font-size: 11px; color: var(--muted); margin-top: 8px;
 }
+.chart-card {
+  margin: 4px 0 14px;
+  padding: 6px 0 0;
+}
+.chart-card .plotly-graph-div { min-height: 360px; }
 .cell.ai .prompt {
   font: 13px/1.55 inherit; color: var(--text);
   background: var(--surface-2); border-radius: 10px;
@@ -243,46 +255,199 @@ def _render_markdown(source: str) -> str:
     return md.render(source)
 
 
+def _fmt_value(value: Any) -> tuple[str, str]:
+    """Return (html-safe text, css class) for one table cell.
+
+    The class lets the inline stylesheet right-align numerics + style nulls.
+    Long strings get truncated with a tooltip carrying the full value so a
+    1 KB JSON blob doesn't blow out the column width.
+    """
+    if value is None:
+        return "null", "null"
+    if isinstance(value, bool):
+        return ("true" if value else "false"), "bool"
+    if isinstance(value, int):
+        return f"{value:,}", "num"
+    if isinstance(value, float):
+        # Locale-aware thousands separator + sane decimal precision.
+        if value.is_integer():
+            return f"{int(value):,}", "num"
+        return f"{value:,.4f}".rstrip("0").rstrip("."), "num"
+    s = str(value)
+    if len(s) > 80:
+        short = s[:77] + "…"
+        return (
+            f'<span title="{html.escape(s, quote=True)}">{html.escape(short)}</span>',
+            "trunc",
+        )
+    return html.escape(s), ""
+
+
+def _column_is_numeric(rows: list[dict[str, Any]], name: str) -> bool:
+    """Right-align a column if at least 70% of its present values are numeric."""
+    seen = 0
+    nums = 0
+    for r in rows:
+        v = r.get(name)
+        if v is None:
+            continue
+        seen += 1
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            nums += 1
+    if seen == 0:
+        return False
+    return nums / seen >= 0.7
+
+
 def _render_result_table(snapshot: dict[str, Any] | None) -> str:
+    """Render a result snapshot as a compact, premium-looking HTML table.
+
+    - 50-row cap (down from 200) — a static share isn't a data dump.
+    - Numbers get locale-aware thousands separators + right alignment when
+      the column is mostly numeric.
+    - Long strings truncate at 80 chars with a ``title`` attribute carrying
+      the original value.
+    - Cells with no result render nothing (we don't want empty tables
+      cluttering the published page).
+    """
     if not snapshot:
         return ""
     columns = snapshot.get("columns") or []
     rows = snapshot.get("rows") or []
-    if not columns:
+    if not columns or not rows:
         return ""
-    # Cap rows so a 10k-row preview doesn't blow up the static file.
-    cap = 200
+
+    cap = 50
     truncated = len(rows) > cap
     visible = rows[:cap]
-
-    def cell(value: Any) -> str:
-        if value is None:
-            return '<td class="null">null</td>'
-        if isinstance(value, bool):
-            return f"<td>{value}</td>"
-        if isinstance(value, (int, float)):
-            return f'<td class="num">{html.escape(str(value))}</td>'
-        return f"<td>{html.escape(str(value))}</td>"
-
-    head = "".join(
-        f"<th>{html.escape(str(c.get('name', '')))}</th>" for c in columns
-    )
-    body_rows = []
     col_names = [c.get("name", "") for c in columns]
-    for r in visible:
-        body_rows.append("<tr>" + "".join(cell(r.get(n)) for n in col_names) + "</tr>")
+    numeric_cols = {n for n in col_names if _column_is_numeric(rows, n)}
+
+    def cell(value: Any, col_name: str) -> str:
+        text, cls = _fmt_value(value)
+        # Numeric columns get right-aligned even when an individual cell
+        # is null — keeps the column visually coherent.
+        if col_name in numeric_cols and not cls:
+            cls = "num"
+        return f'<td class="{cls}">{text}</td>' if cls else f"<td>{text}</td>"
+
+    head_cells = []
+    for c in columns:
+        n = str(c.get("name", ""))
+        dtype = str(c.get("data_type", "")).strip()
+        align_cls = " class=\"num\"" if n in numeric_cols else ""
+        type_hint = (
+            f'<span class="type-hint">{html.escape(dtype.lower())}</span>'
+            if dtype
+            else ""
+        )
+        head_cells.append(f"<th{align_cls}>{html.escape(n)}{type_hint}</th>")
+    head = "".join(head_cells)
+
+    body_rows = [
+        "<tr>" + "".join(cell(r.get(n), n) for n in col_names) + "</tr>"
+        for r in visible
+    ]
+
     row_count = snapshot.get("row_count", len(rows))
     duration = snapshot.get("duration_seconds")
     meta_bits = [f"{row_count:,} rows"]
     if duration is not None:
         meta_bits.append(f"{duration * 1000:.0f} ms")
     if truncated:
-        meta_bits.append(f"showing first {cap}")
+        meta_bits.append(f"showing first {cap:,}")
     return (
         f'<table class="result"><thead><tr>{head}</tr></thead>'
         f'<tbody>{"".join(body_rows)}</tbody></table>'
         f'<div class="result-meta">{" · ".join(meta_bits)}</div>'
     )
+
+
+def _render_chart_html(
+    chart_config: dict[str, Any] | None,
+    snapshot: dict[str, Any] | None,
+    *,
+    is_first_chart: bool,
+) -> str:
+    """Render a chart as inline Plotly HTML.
+
+    Uses ``include_plotlyjs='cdn'`` on the first chart so plotly.js is
+    fetched exactly once across the whole published page (subsequent
+    charts pass ``include_plotlyjs=False``). Falls back silently to an
+    empty string if Plotly fails for any reason — we'd rather drop the
+    chart than break the whole share page.
+    """
+    if not chart_config or not snapshot:
+        return ""
+    chart_type = chart_config.get("chart_type")
+    x = chart_config.get("x")
+    y = chart_config.get("y")
+    if not chart_type or not x or not y:
+        return ""
+    rows = snapshot.get("rows") or []
+    if not rows:
+        return ""
+
+    try:
+        import pandas as pd
+        import plotly.express as px
+
+        df = pd.DataFrame(rows)
+        title = chart_config.get("title") or None
+        color = chart_config.get("color")
+        # Dark template that matches the published-page theme.
+        common = {"title": title, "template": "plotly_dark"}
+        y_first = y[0] if isinstance(y, list) and y else y
+
+        if chart_type in {"line", "time_series"}:
+            fig = px.line(df, x=x, y=y_first, color=color, **common)
+        elif chart_type == "area":
+            fig = px.area(df, x=x, y=y_first, color=color, **common)
+        elif chart_type in {"bar", "histogram"}:
+            fig = px.bar(df, x=x, y=y_first, color=color, **common)
+        elif chart_type == "stacked_bar":
+            fig = px.bar(
+                df, x=x, y=y_first, color=color, barmode="stack", **common
+            )
+        elif chart_type == "scatter":
+            fig = px.scatter(df, x=x, y=y_first, color=color, **common)
+        elif chart_type in {"pie", "donut"}:
+            fig = px.pie(
+                df,
+                names=x,
+                values=y_first,
+                hole=0.5 if chart_type == "donut" else 0,
+                **common,
+            )
+        elif chart_type == "box":
+            fig = px.box(df, x=x, y=y_first, color=color, **common)
+        elif chart_type == "heatmap":
+            fig = px.density_heatmap(df, x=x, y=y_first, **common)
+        else:
+            fig = px.bar(df, x=x, y=y_first, color=color, **common)
+
+        # Tight margins + transparent paper so the chart blends with the
+        # cell card the published page renders it inside.
+        fig.update_layout(
+            margin=dict(l=40, r=20, t=40 if title else 12, b=40),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#e5e7eb", size=12),
+            legend=dict(font=dict(size=11)),
+        )
+        html_doc = fig.to_html(
+            full_html=False,
+            include_plotlyjs="cdn" if is_first_chart else False,
+            config={
+                "displaylogo": False,
+                "responsive": True,
+                "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+            },
+        )
+        return f'<div class="chart-card">{html_doc}</div>'
+    except Exception:
+        # Best-effort — never break the share page on a chart failure.
+        return ""
 
 
 def render_notebook_html(
@@ -305,6 +470,9 @@ def render_notebook_html(
     description = notebook.metadata.description or ""
 
     parts: list[str] = []
+    # Track whether we've already emitted the plotly.js script tag so
+    # subsequent chart cells don't double-include it.
+    chart_emitted = False
     for cell in notebook.cells:
         if isinstance(cell, MarkdownCell):
             parts.append(
@@ -314,11 +482,21 @@ def render_notebook_html(
             )
         elif isinstance(cell, SQLCell):
             sql_html = _highlight_sql(cell.sql.strip() or "-- empty cell")
-            table_html = _render_result_table(results.get(cell.id))
+            snapshot = results.get(cell.id)
+            table_html = _render_result_table(snapshot)
+            chart_cfg = (
+                cell.chart_config.model_dump() if cell.chart_config else None
+            )
+            chart_html = _render_chart_html(
+                chart_cfg, snapshot, is_first_chart=not chart_emitted
+            )
+            if chart_html:
+                chart_emitted = True
             parts.append(
                 f'<section class="cell sql">'
                 f'<div class="label">SQL</div>'
                 f"<pre class=\"sql\">{sql_html}</pre>"
+                f"{chart_html}"
                 f"{table_html}"
                 f"</section>"
             )
@@ -338,14 +516,35 @@ def render_notebook_html(
                 f"</section>"
             )
         elif isinstance(cell, VisualizationCell):
-            cfg = cell.chart_config.model_dump() if cell.chart_config else {}
-            parts.append(
-                f'<section class="cell chart">'
-                f'<div class="label">Chart</div>'
-                f'<pre class="sql">{html.escape(json.dumps(cfg, indent=2))}</pre>'
-                f'<div class="result-meta">Live chart rendering is omitted '
-                f"in the static page.</div></section>"
+            cfg_dict = (
+                cell.chart_config.model_dump() if cell.chart_config else None
             )
+            # Resolve the source SQL cell's result for the chart payload —
+            # falls back to the first SQL cell's result if no source link.
+            source_snap = (
+                results.get(cell.source_cell_id) if cell.source_cell_id else None
+            )
+            if source_snap is None:
+                source_snap = next(
+                    (results[c.id] for c in notebook.cells if c.id in results),
+                    None,
+                )
+            chart_html = _render_chart_html(
+                cfg_dict, source_snap, is_first_chart=not chart_emitted
+            )
+            if chart_html:
+                chart_emitted = True
+                parts.append(
+                    f'<section class="cell chart"><div class="label">Chart</div>'
+                    f"{chart_html}</section>"
+                )
+            else:
+                parts.append(
+                    '<section class="cell chart">'
+                    '<div class="label">Chart</div>'
+                    '<div class="result-meta">Chart hidden — no result data '
+                    "linked to this cell.</div></section>"
+                )
         elif isinstance(cell, KnowledgeNoteCell):
             body = _render_markdown(cell.body or "")
             parts.append(

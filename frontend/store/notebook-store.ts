@@ -52,6 +52,46 @@ function uid() {
   return uuid().replace(/-/g, "");
 }
 
+// Per-cell row cap applied right before zustand-persist writes
+// cellResultsByTab to localStorage. The browser quota is roughly 5 MB
+// across all keys under our origin — without a cap, a 50k-row analyst
+// result can blow it on its own and silently fail every subsequent
+// persist write. 500 rows comfortably renders the AG Grid preview after
+// a refresh + leaves headroom for a notebook with multiple SQL cells.
+const PERSIST_RESULT_ROW_CAP = 500;
+
+function trimResultsForPersist(
+  resultsByTab: Record<string, Record<string, CellResult>>,
+): Record<string, Record<string, CellResult>> {
+  const out: Record<string, Record<string, CellResult>> = {};
+  for (const [tabId, perCell] of Object.entries(resultsByTab)) {
+    const trimmed: Record<string, CellResult> = {};
+    for (const [cellId, cr] of Object.entries(perCell)) {
+      // Drop in-flight state — a refresh where a query was running mid-
+      // flight should NOT come back showing a stuck "running" cell.
+      const cleaned: CellResult = {
+        ...cr,
+        running: false,
+        startedAt: null,
+      };
+      if (
+        cleaned.result &&
+        Array.isArray(cleaned.result.rows) &&
+        cleaned.result.rows.length > PERSIST_RESULT_ROW_CAP
+      ) {
+        cleaned.result = {
+          ...cleaned.result,
+          rows: cleaned.result.rows.slice(0, PERSIST_RESULT_ROW_CAP),
+          truncated: true,
+        };
+      }
+      trimmed[cellId] = cleaned;
+    }
+    out[tabId] = trimmed;
+  }
+  return out;
+}
+
 const DEFAULT_WELCOME = (title: string) =>
   `# ${title}
 
@@ -333,12 +373,39 @@ export const useNotebookStore = create<NotebookStore>()(
     }),
     {
       name: "rednotebook-notebooks",
-      // Persist the open tab set + notebooks content + active tab.
-      // Skip selection + results (transient).
+      version: 2,
+      // v0 / v1 (pre-v0.7.20) persisted notebooks + tabs + activeTab but
+      // NOT cellResultsByTab. After v0.7.20 we also persist results.
+      // Migrate fills the missing field so older localStorage doesn't get
+      // wiped by zustand's version check.
+      migrate: (persistedState) => {
+        const prev = (persistedState ?? {}) as Partial<{
+          notebooks: Record<string, Notebook>;
+          tabs: string[];
+          activeTab: string | null;
+          cellResultsByTab: Record<string, Record<string, CellResult>>;
+        }>;
+        return {
+          notebooks: prev.notebooks ?? {},
+          tabs: prev.tabs ?? [],
+          activeTab: prev.activeTab ?? null,
+          cellResultsByTab: prev.cellResultsByTab ?? {},
+        };
+      },
+      // Persist tabs + notebooks + active tab + cell results.
+      //
+      // Results are also persisted (added in v0.7.20) so a page refresh
+      // doesn't wipe the screen back to "Run to see results" on every
+      // open cell. Large results are capped to PERSIST_RESULT_ROW_CAP
+      // rows before serialise; the in-memory state keeps the full
+      // result for the current session, only the localStorage copy is
+      // truncated. Huge analyst-output cells then survive refresh as a
+      // "cached preview, rerun for full data" view.
       partialize: (state) => ({
         notebooks: state.notebooks,
         tabs: state.tabs,
         activeTab: state.activeTab,
+        cellResultsByTab: trimResultsForPersist(state.cellResultsByTab),
       }),
     }
   )
