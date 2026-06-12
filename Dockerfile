@@ -1,7 +1,15 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- Stage 1: build the Next.js static export ----------
-FROM node:20-alpine AS frontend-build
+#
+# Debian-based (glibc), NOT Alpine. Next.js 14's SWC variant selector on
+# Alpine arm64 sometimes picks the *-gnu prebuilt instead of the *-musl
+# one, then dies on `__res_init: symbol not found` because Alpine ships
+# musl. That bit us in the v0.7.17 release build. Switching to
+# `node:20-bookworm-slim` eliminates the variant-detection problem
+# entirely — the final runtime image still uses python:3.12-slim, so
+# this doesn't change the final image size.
+FROM node:20-bookworm-slim AS frontend-build
 WORKDIR /app/frontend
 
 COPY frontend/package.json frontend/package-lock.json ./
@@ -83,10 +91,15 @@ PY
 COPY --from=frontend-build /app/frontend/out /static_frontend
 ENV REDNOTEBOOK_STATIC_DIR=/static_frontend
 
-# Create the per-user data dirs and a non-root user
+# Create the per-user data dirs and a non-root user. /data/uploads +
+# /data/published were added in v0.7.18 to cover the drag-drop file
+# upload + public publish features — without these the non-root user
+# can't write to the default `local_data/{uploads,published}` paths
+# under /app and uploads / publishes fail with 500 "permission denied".
 RUN useradd -m -u 1000 redbook \
     && mkdir -p /data/notebooks /data/knowledge /data/auth /data/artifacts /data/exports \
                 /data/connections /data/audit /data/admin \
+                /data/uploads /data/published \
     && chown -R redbook:redbook /data
 ENV NOTEBOOK_STORAGE_DIR=/data/notebooks \
     KNOWLEDGE_STORAGE_DIR=/data/knowledge \
@@ -95,7 +108,9 @@ ENV NOTEBOOK_STORAGE_DIR=/data/notebooks \
     EXPORTS_DIR=/data/exports \
     CONNECTION_STORAGE_DIR=/data/connections \
     AUDIT_STORAGE_DIR=/data/audit \
-    RUNTIME_CONFIG_DIR=/data/admin
+    RUNTIME_CONFIG_DIR=/data/admin \
+    UPLOADS_STORAGE_DIR=/data/uploads \
+    PUBLISHED_STORAGE_DIR=/data/published
 
 USER redbook
 
