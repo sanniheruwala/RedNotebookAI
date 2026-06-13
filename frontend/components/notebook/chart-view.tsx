@@ -225,14 +225,21 @@ export function ChartView({
   result,
   config,
   onChange,
+  compact = false,
 }: {
   result: QueryResultPayload;
   config: ChartConfig;
   /** Provide a setter to let the user open the Customize popover and
    *  edit title / palette / format / toggles in place. When omitted,
-   *  the chart renders read-only — used by published HTML and similar
-   *  consumers that shouldn't mutate the cell. */
+   *  the chart renders read-only — used by published HTML, the
+   *  thumbnail grid, and other consumers that shouldn't mutate the
+   *  cell. */
   onChange?: (next: ChartConfig) => void;
+  /** Render as a smaller thumbnail (no card chrome, no title, fills
+   *  the parent container). Used by the auto-recommended chart grid so
+   *  4 charts can sit on screen. Implies read-only — even if onChange
+   *  is provided, the Share + Customize affordances are not rendered. */
+  compact?: boolean;
 }) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -247,9 +254,12 @@ export function ChartView({
   const echartsInstanceRef = React.useRef<EChartsType | null>(null);
 
   // Memo on the fields that actually affect the chart's ECharts option.
-  // Title/subtitle are HTML-only — including them here would force the
-  // canvas to redraw on every keystroke when the user is renaming the
-  // chart, which feels laggy and triggers ECharts' animation.
+  // Title/subtitle are HTML-only (the report-card chrome renders them
+  // outside the canvas), so including them in the dep array would force
+  // a full ECharts redraw on every keystroke while the user is renaming
+  // the chart — felt laggy and triggered the load animation. By keying
+  // on the structural fields only, the canvas stays stable while the
+  // HTML header re-renders for free.
   const optionsKey = config.options;
   const filtersKey = config.filters;
   const yKey = Array.isArray(config.y) ? config.y.join(",") : config.y;
@@ -270,6 +280,13 @@ export function ChartView({
   );
 
   if (!option) {
+    if (compact) {
+      return (
+        <div className="grid h-full place-items-center text-[11px] text-muted-foreground">
+          (no preview)
+        </div>
+      );
+    }
     return (
       <div className="rounded-xl border bg-gradient-to-br from-muted/20 to-muted/5 p-10 text-center text-sm text-muted-foreground">
         <div className="mx-auto mb-2 grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
@@ -301,6 +318,19 @@ export function ChartView({
   const useSvg = pointCount <= 3000;
   const dpr =
     typeof window !== "undefined" ? Math.max(2, window.devicePixelRatio || 2) : 2;
+
+  if (compact) {
+    return (
+      <ReactECharts
+        option={option}
+        style={{ height: "100%", width: "100%" }}
+        notMerge
+        lazyUpdate
+        opts={useSvg ? { renderer: "svg" } : { renderer: "canvas", devicePixelRatio: dpr }}
+        theme={isDark ? "dark" : undefined}
+      />
+    );
+  }
 
   return (
     <div
