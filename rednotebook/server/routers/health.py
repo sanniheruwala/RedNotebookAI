@@ -31,4 +31,5 @@ def healthcheck() -> dict[str, object]:
         "available_connectors": available_connectors(),
         "allow_write_queries": settings.allow_write_queries,
         "ai_context_mode": settings.ai_context_mode,
+        "demo_mode": settings.demo_mode,
     }

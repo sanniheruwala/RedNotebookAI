@@ -41,6 +41,10 @@ import {
   type ConnectorId,
   type ConnectorMeta,
 } from "@/lib/connectors";
+import {
+  QuickConnectStrip,
+  type ConnectionTemplate,
+} from "@/components/sidebar/connection-templates";
 import type {
   Connection,
   DuckDBConnection,
@@ -178,6 +182,21 @@ export function ConnectionDialog({ children }: { children: React.ReactNode }) {
     setView({ kind: "form", connectorId, editingId: null });
   };
 
+  /**
+   * Open the connection form with a template's pre-filled values (Supabase /
+   * Neon / Railway / etc.). The template builds a full Connection object;
+   * we route it into the right draft slot by connector_type so the form
+   * picks it up.
+   */
+  const openAddFromTemplate = (template: ConnectionTemplate) => {
+    const cfg = template.build();
+    const connectorId = cfg.connector_type as ConnectorId;
+    if (cfg.connector_type === "duckdb") setDuckdbDraft(cfg);
+    else if (cfg.connector_type === "trino") setTrinoDraft(cfg);
+    else setSqlAlchemyDraft(cfg as SQLAlchemyConnection);
+    setView({ kind: "form", connectorId, editingId: null });
+  };
+
   const openEdit = async (record: SavedConnection) => {
     try {
       const cfg = await api.loadSavedConnection(record.id);
@@ -223,6 +242,7 @@ export function ConnectionDialog({ children }: { children: React.ReactNode }) {
               }
             }}
             onAdd={openAdd}
+            onAddFromTemplate={openAddFromTemplate}
           />
         ) : (
           <FormView
@@ -238,6 +258,7 @@ export function ConnectionDialog({ children }: { children: React.ReactNode }) {
             testResult={testInline.data ?? null}
           />
         )}
+
       </DialogContent>
     </Dialog>
   );
@@ -255,6 +276,7 @@ function ListView({
   onEdit,
   onDelete,
   onAdd,
+  onAddFromTemplate,
 }: {
   saved: SavedConnection[];
   loading: boolean;
@@ -264,6 +286,7 @@ function ListView({
   onEdit: (record: SavedConnection) => void;
   onDelete: (id: string) => void;
   onAdd: (id: ConnectorId) => void;
+  onAddFromTemplate: (t: ConnectionTemplate) => void;
 }) {
   return (
     <>
@@ -309,9 +332,11 @@ function ListView({
         )}
       </section>
 
+      <QuickConnectStrip onPick={onAddFromTemplate} />
+
       <section className="space-y-2">
         <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Add connection
+          Or pick a connector
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
           {CONNECTORS.map((c) => (

@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # App
     app_name: str = Field(default="RedNotebook AI")
     app_env: str = Field(default="local")
+    # Set DEMO_MODE=true on a public instance (e.g. try.rednotebook.app).
+    # The UI then shows a "this is a public demo, your work isn't saved
+    # between sessions" banner so visitors aren't surprised when a wipe
+    # happens. Does NOT change auth or storage behaviour — purely a UI
+    # signal carried through the /api/health response.
+    demo_mode: bool = Field(default=False)
 
     # Query safety / limits
     allow_write_queries: bool = Field(default=False)

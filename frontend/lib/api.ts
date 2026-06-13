@@ -60,6 +60,7 @@ export const api = {
       version: string;
       ai_provider: string;
       ai_provider_active: string;
+      demo_mode?: boolean;
     }>("/health"),
 
   // ----- Auth ------------------------------------------------------------

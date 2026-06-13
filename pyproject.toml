@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rednotebook-ai"
-version = "0.7.20"
+version = "0.7.21"
 description = "Open-source AI data notebook for Trino and modern data platforms."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -102,6 +102,12 @@ rednotebook = "rednotebook.cli.main:app"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["rednotebook*"]
+
+# Ship non-Python assets bundled inside the wheel. Today this is the
+# starter notebook JSONs under rednotebook/samples/ that seed_if_empty
+# copies into a fresh user's notebook directory on first list.
+[tool.setuptools.package-data]
+"rednotebook.samples" = ["*.json"]
 
 [tool.ruff]
 line-length = 100
