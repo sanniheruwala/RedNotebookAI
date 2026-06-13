@@ -134,20 +134,39 @@ function isDateLike(s: string): boolean {
 export function ChartView({
   result,
   config,
+  compact = false,
 }: {
   result: QueryResultPayload;
   config: ChartConfig;
+  /** Render as a smaller thumbnail (no card chrome, no title, ~200px tall).
+   *  Used by the auto-recommended chart grid so 4 charts can sit on screen. */
+  compact?: boolean;
 }) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const theme = React.useMemo(() => buildTheme(isDark), [isDark]);
 
+  // For compact thumbnails, drop the chart title so the row of charts
+  // doesn't have repeated bold text — the grid card already carries
+  // the label.
+  const renderConfig = React.useMemo(
+    () => (compact ? { ...config, title: null } : config),
+    [compact, config],
+  );
+
   const option = React.useMemo(
-    () => buildOption(result, config, theme),
-    [result, config, theme],
+    () => buildOption(result, renderConfig, theme),
+    [result, renderConfig, theme],
   );
 
   if (!option) {
+    if (compact) {
+      return (
+        <div className="grid h-full place-items-center text-[11px] text-muted-foreground">
+          (no preview)
+        </div>
+      );
+    }
     return (
       <div className="rounded-xl border bg-gradient-to-br from-muted/20 to-muted/5 p-10 text-center text-sm text-muted-foreground">
         <div className="mx-auto mb-2 grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
@@ -179,6 +198,19 @@ export function ChartView({
   const useSvg = pointCount <= 3000;
   const dpr =
     typeof window !== "undefined" ? Math.max(2, window.devicePixelRatio || 2) : 2;
+
+  if (compact) {
+    return (
+      <ReactECharts
+        option={option}
+        style={{ height: "100%", width: "100%" }}
+        notMerge
+        lazyUpdate
+        opts={useSvg ? { renderer: "svg" } : { renderer: "canvas", devicePixelRatio: dpr }}
+        theme={isDark ? "dark" : undefined}
+      />
+    );
+  }
 
   return (
     <div
