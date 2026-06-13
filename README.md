@@ -7,13 +7,16 @@
 **The open-source AI data notebook for Trino, DuckDB, and 11 more SQL engines.**
 By [RedAnalytica](https://redanalytica.in).
 
+[![Try the demo](https://img.shields.io/badge/▶_Try_the_live_demo-22c55e?style=for-the-badge&labelColor=0f172a)](https://huggingface.co/spaces/heruwala/rednotebook-demo)
 [![CI](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/ci.yml/badge.svg)](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/ci.yml)
 [![Release](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/release.yml/badge.svg)](https://github.com/sanniheruwala/RedNotebookAI/actions/workflows/release.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-22c55e.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-22c55e.svg)](https://www.python.org/)
-[![Next.js 14](https://img.shields.io/badge/Next.js-14-22c55e.svg)](https://nextjs.org/)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-22c55e.svg)](https://nextjs.org/)
 
 Query, visualize, profile, and explore data with beautiful charts, AI suggestions, and a NotebookLM-style knowledge layer.
+
+**👉 [Try it now — no signup, no install](https://huggingface.co/spaces/heruwala/rednotebook-demo)**
 
 </div>
 
@@ -41,6 +44,11 @@ Modern data teams jump between five tools to answer one question. RedNotebook AI
 ---
 
 ## Install
+
+> **Just kicking the tires?** The live demo at
+> [huggingface.co/spaces/heruwala/rednotebook-demo](https://huggingface.co/spaces/heruwala/rednotebook-demo)
+> runs the published image with the sample notebook pre-loaded. No
+> install required, no signup, your work isn't saved between sessions.
 
 ### Docker (any OS)
 
