@@ -11,6 +11,8 @@ import {
   FileCode2,
   FileImage,
   FileSpreadsheet,
+  RotateCcw,
+  Sliders,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import {
   copyChartPngToClipboard,
   downloadChartPng,
@@ -32,29 +38,35 @@ import type { ChartConfig, QueryResultPayload } from "@/lib/types";
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
 
-// Brand-aligned categorical palette — warm primary anchor with cool
-// supporting tones so 6+ series remain distinguishable without looking
-// like a default 2010 line chart.
-const PALETTE_DARK = [
-  "#f43f5e",
-  "#22d3ee",
-  "#a78bfa",
-  "#34d399",
-  "#fbbf24",
-  "#60a5fa",
-  "#f472b6",
-  "#fb923c",
-];
-const PALETTE_LIGHT = [
-  "#e11d48",
-  "#0891b2",
-  "#7c3aed",
-  "#059669",
-  "#d97706",
-  "#2563eb",
-  "#db2777",
-  "#ea580c",
-];
+// Palette presets — five distinct moods, each tuned for both dark and
+// light backgrounds. The first entry is the anchor / "primary" used
+// for single-series visuals; the rest fan out for multi-series charts.
+// Picked to stay legible at low chart sizes and remain WCAG-comfortable
+// on the card background.
+export type PaletteKey = "brand" | "ocean" | "forest" | "sunset" | "mono";
+
+const PALETTES: Record<PaletteKey, { dark: string[]; light: string[] }> = {
+  brand: {
+    dark: ["#f43f5e", "#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#60a5fa", "#f472b6", "#fb923c"],
+    light: ["#e11d48", "#0891b2", "#7c3aed", "#059669", "#d97706", "#2563eb", "#db2777", "#ea580c"],
+  },
+  ocean: {
+    dark: ["#22d3ee", "#60a5fa", "#a78bfa", "#34d399", "#f43f5e", "#fbbf24", "#f472b6", "#fb923c"],
+    light: ["#0891b2", "#2563eb", "#7c3aed", "#059669", "#e11d48", "#d97706", "#db2777", "#ea580c"],
+  },
+  forest: {
+    dark: ["#34d399", "#22d3ee", "#a78bfa", "#fbbf24", "#60a5fa", "#f43f5e", "#f472b6", "#fb923c"],
+    light: ["#059669", "#0891b2", "#7c3aed", "#d97706", "#2563eb", "#e11d48", "#db2777", "#ea580c"],
+  },
+  sunset: {
+    dark: ["#fb923c", "#f43f5e", "#fbbf24", "#a78bfa", "#22d3ee", "#34d399", "#60a5fa", "#f472b6"],
+    light: ["#ea580c", "#e11d48", "#d97706", "#7c3aed", "#0891b2", "#059669", "#2563eb", "#db2777"],
+  },
+  mono: {
+    dark: ["#cbd5e1", "#94a3b8", "#e2e8f0", "#64748b", "#f1f5f9", "#475569", "#f8fafc", "#334155"],
+    light: ["#334155", "#64748b", "#475569", "#94a3b8", "#1e293b", "#cbd5e1", "#0f172a", "#e2e8f0"],
+  },
+};
 
 type PaletteTheme = {
   palette: string[];
@@ -68,31 +80,84 @@ type PaletteTheme = {
   surface: string;
 };
 
-function buildTheme(isDark: boolean): PaletteTheme {
+function buildTheme(isDark: boolean, paletteKey: PaletteKey = "brand"): PaletteTheme {
+  const swatches = PALETTES[paletteKey] ?? PALETTES.brand;
+  const palette = isDark ? swatches.dark : swatches.light;
+  const primary = palette[0];
   if (isDark) {
     return {
-      palette: PALETTE_DARK,
-      primary: "#f43f5e",
+      palette,
+      primary,
       axisLine: "rgba(148, 163, 184, 0.25)",
       splitLine: "rgba(148, 163, 184, 0.10)",
       text: "rgba(226, 232, 240, 0.92)",
       mutedText: "rgba(148, 163, 184, 0.85)",
       tooltipBg: "rgba(15, 23, 42, 0.94)",
-      tooltipBorder: "rgba(244, 63, 94, 0.35)",
+      tooltipBorder: `${primary}59`,
       surface: "transparent",
     };
   }
   return {
-    palette: PALETTE_LIGHT,
-    primary: "#e11d48",
+    palette,
+    primary,
     axisLine: "rgba(15, 23, 42, 0.18)",
     splitLine: "rgba(15, 23, 42, 0.06)",
     text: "rgba(15, 23, 42, 0.92)",
     mutedText: "rgba(71, 85, 105, 0.85)",
     tooltipBg: "rgba(255, 255, 255, 0.98)",
-    tooltipBorder: "rgba(225, 29, 72, 0.25)",
+    tooltipBorder: `${primary}40`,
     surface: "transparent",
   };
+}
+
+/* ----------------------- chart customization ----------------------- */
+
+export type HeightKey = "compact" | "standard" | "tall";
+export type YFormatKey = "auto" | "number" | "currency" | "percent";
+
+export type ChartOptionsExt = {
+  palette?: PaletteKey;
+  height?: HeightKey;
+  yFormat?: YFormatKey;
+  yDecimals?: number;
+  showLegend?: boolean;
+  showGridlines?: boolean;
+  showDataLabels?: boolean;
+  smoothLines?: boolean;
+  fillArea?: boolean;
+};
+
+const HEIGHT_PX: Record<HeightKey, number> = {
+  compact: 280,
+  standard: 380,
+  tall: 540,
+};
+
+const DEFAULT_OPTIONS: Required<
+  Pick<
+    ChartOptionsExt,
+    | "palette"
+    | "height"
+    | "yFormat"
+    | "showLegend"
+    | "showGridlines"
+    | "showDataLabels"
+    | "smoothLines"
+    | "fillArea"
+  >
+> = {
+  palette: "brand",
+  height: "standard",
+  yFormat: "auto",
+  showLegend: false,
+  showGridlines: true,
+  showDataLabels: false,
+  smoothLines: true,
+  fillArea: false,
+};
+
+function readOptions(config: ChartConfig): ChartOptionsExt {
+  return (config.options ?? {}) as ChartOptionsExt;
 }
 
 function formatTick(value: unknown): string {
@@ -159,13 +224,26 @@ function isDateLike(s: string): boolean {
 export function ChartView({
   result,
   config,
+  onChange,
 }: {
   result: QueryResultPayload;
   config: ChartConfig;
+  /** Provide a setter to let the user open the Customize popover and
+   *  edit title / palette / format / toggles in place. When omitted,
+   *  the chart renders read-only — used by published HTML and similar
+   *  consumers that shouldn't mutate the cell. */
+  onChange?: (next: ChartConfig) => void;
 }) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
-  const theme = React.useMemo(() => buildTheme(isDark), [isDark]);
+  const opts = readOptions(config);
+  const paletteKey: PaletteKey = opts.palette ?? DEFAULT_OPTIONS.palette;
+  const heightKey: HeightKey = opts.height ?? DEFAULT_OPTIONS.height;
+  const heightPx = HEIGHT_PX[heightKey];
+  const theme = React.useMemo(
+    () => buildTheme(isDark, paletteKey),
+    [isDark, paletteKey],
+  );
   const echartsInstanceRef = React.useRef<EChartsType | null>(null);
 
   const option = React.useMemo(
@@ -210,18 +288,29 @@ export function ChartView({
     <div
       className={`group relative overflow-hidden rounded-2xl border bg-card ring-1 ring-inset ${
         isDark
-          ? "border-border/60 ring-white/5 shadow-[0_18px_48px_-24px_rgba(0,0,0,0.55)]"
-          : "border-border ring-black/[0.03] shadow-[0_18px_40px_-20px_rgba(15,23,42,0.18)]"
+          ? "border-border/60 ring-white/5 shadow-[0_22px_56px_-26px_rgba(0,0,0,0.6)]"
+          : "border-border ring-black/[0.03] shadow-[0_22px_52px_-24px_rgba(15,23,42,0.18)]"
       }`}
     >
-      <ChartDownloadMenu
-        getInstance={() => echartsInstanceRef.current}
-        result={result}
-        config={config}
+      {/* Thin brand-aligned accent strip at the very top — the
+          report-card detail that signals "made with care". */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-primary/55 to-transparent"
       />
+      <ChartHeader result={result} config={config}>
+        {onChange && (
+          <ChartCustomize config={config} onChange={onChange} />
+        )}
+        <ChartDownloadMenu
+          getInstance={() => echartsInstanceRef.current}
+          result={result}
+          config={config}
+        />
+      </ChartHeader>
       <ReactECharts
         option={option}
-        style={{ height: 460, width: "100%" }}
+        style={{ height: heightPx, width: "100%" }}
         notMerge
         lazyUpdate
         opts={useSvg ? { renderer: "svg" } : { renderer: "canvas", devicePixelRatio: dpr }}
@@ -230,8 +319,207 @@ export function ChartView({
           echartsInstanceRef.current = instance as EChartsType;
         }}
       />
+      <ChartFooter result={result} config={config} />
     </div>
   );
+}
+
+/**
+ * Header strip rendered above the chart canvas. Title + auto-generated
+ * description on the left, metadata badges + actions on the right.
+ *
+ * We render the title in HTML rather than as an ECharts title because
+ * the analyst is consuming this as a report block — typography needs
+ * proper font features (tabular nums, kerning), and the title should
+ * never collide with the chart contents on small grids.
+ */
+function ChartHeader({
+  result,
+  config,
+  children,
+}: {
+  result: QueryResultPayload;
+  config: ChartConfig;
+  children?: React.ReactNode;
+}) {
+  const title =
+    (config.title && config.title.trim()) || autoTitle(config);
+  const subtitle =
+    (config.subtitle && config.subtitle.trim()) || autoSubtitle(config);
+
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-gradient-to-b from-background/40 to-transparent px-5 pt-4 pb-3">
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-[15px] font-semibold leading-snug tracking-tight text-foreground">
+          {title}
+        </h3>
+        {subtitle && (
+          <p className="mt-0.5 truncate text-[11.5px] leading-snug text-muted-foreground">
+            {subtitle}
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <MetaBadge>
+          <span className="tabular-nums">
+            {result.row_count.toLocaleString()}
+          </span>
+          <span className="ml-1 text-muted-foreground/80">rows</span>
+        </MetaBadge>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ChartFooter({
+  result,
+  config,
+}: {
+  result: QueryResultPayload;
+  config: ChartConfig;
+}) {
+  const aggLabel = humanizeAggregation(config.aggregation);
+  const showAgg =
+    aggLabel !== null &&
+    config.chart_type !== "scatter" &&
+    config.chart_type !== "kpi";
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border/60 bg-muted/[0.04] px-5 py-2 text-[10.5px] leading-snug text-muted-foreground">
+      <div className="flex items-center gap-2">
+        {showAgg && (
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1 w-1 rounded-full bg-primary/70" />
+            Aggregated by{" "}
+            <span className="font-medium text-foreground/80">{aggLabel}</span>
+          </span>
+        )}
+        {result.truncated && (
+          <span className="rounded-md bg-amber-500/10 px-1.5 py-px text-amber-600 ring-1 ring-amber-500/30 dark:text-amber-300">
+            Result truncated · download CSV for full data
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        {result.duration_seconds > 0 && (
+          <span className="tabular-nums">
+            {result.duration_seconds < 1
+              ? `${Math.round(result.duration_seconds * 1000)}ms`
+              : `${result.duration_seconds.toFixed(2)}s`}{" "}
+            query
+          </span>
+        )}
+        <span className="tracking-wide">
+          Made with{" "}
+          <span className="font-medium text-foreground/70">RedNotebook</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MetaBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-md border border-border/70 bg-background/50 px-1.5 py-0.5 text-[10.5px] font-medium text-foreground/80 shadow-sm">
+      {children}
+    </span>
+  );
+}
+
+function autoTitle(config: ChartConfig): string {
+  const y = Array.isArray(config.y) ? config.y[0] : config.y;
+  const x = config.x;
+  const kind = config.chart_type;
+  if (kind === "kpi") return prettify(y ?? "Metric");
+  if (kind === "scatter" && y && x) {
+    return `${prettify(y)} vs ${prettify(x)}`;
+  }
+  if (kind === "pie" || kind === "donut") {
+    return y && x ? `Share of ${prettify(y)} by ${prettify(x)}` : "Composition";
+  }
+  if (kind === "histogram") {
+    return y ? `Distribution of ${prettify(y)}` : "Distribution";
+  }
+  if (kind === "time_series" || kind === "line" || kind === "area") {
+    return y && x ? `${prettify(y)} over ${prettify(x)}` : "Trend";
+  }
+  if (kind === "bar" || kind === "stacked_bar") {
+    return y && x ? `${prettify(y)} by ${prettify(x)}` : "Comparison";
+  }
+  return prettify(kind);
+}
+
+function autoSubtitle(config: ChartConfig): string | null {
+  const agg = humanizeAggregation(config.aggregation);
+  const y = Array.isArray(config.y) ? config.y[0] : config.y;
+  const x = config.x;
+  if (config.chart_type === "kpi") {
+    return agg ? `${agg} · single value` : "Single value";
+  }
+  if (config.chart_type === "scatter") {
+    return "Each dot is one row";
+  }
+  if (config.chart_type === "histogram") {
+    return "Frequency distribution";
+  }
+  const parts: string[] = [];
+  if (agg && y) parts.push(`${agg} of ${prettify(y)}`);
+  else if (y) parts.push(prettify(y));
+  if (x) parts.push(`grouped by ${prettify(x)}`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+function humanizeAggregation(agg: string | null | undefined): string | null {
+  if (!agg) return null;
+  const map: Record<string, string> = {
+    sum: "Sum",
+    avg: "Average",
+    mean: "Average",
+    min: "Minimum",
+    max: "Maximum",
+    count: "Count",
+  };
+  return map[agg] ?? null;
+}
+
+function prettify(s: string): string {
+  return s
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+/* ------------------------- Y-axis formatters ----------------------- */
+
+function makeYFormatter(format: YFormatKey): (v: unknown) => string {
+  if (format === "auto") return formatTick;
+  if (format === "percent") {
+    return (v) => {
+      if (typeof v !== "number" || !Number.isFinite(v)) return "";
+      // Two display modes: values in [0, 1] are treated as ratios and
+      // multiplied; values larger than that are already in percent units.
+      const pct = Math.abs(v) <= 1 ? v * 100 : v;
+      return `${pct.toFixed(1)}%`;
+    };
+  }
+  if (format === "currency") {
+    return (v) => {
+      if (typeof v !== "number" || !Number.isFinite(v)) return "";
+      const abs = Math.abs(v);
+      const sign = v < 0 ? "-" : "";
+      if (abs >= 1_000_000_000) return `${sign}$${(abs / 1e9).toFixed(1)}B`;
+      if (abs >= 1_000_000) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+      if (abs >= 1_000) return `${sign}$${(abs / 1e3).toFixed(1)}k`;
+      return `${sign}$${abs.toLocaleString(undefined, {
+        maximumFractionDigits: 2,
+      })}`;
+    };
+  }
+  // "number" — full locale-formatted integer/decimal
+  return (v) => {
+    if (typeof v !== "number" || !Number.isFinite(v)) return "";
+    return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  };
 }
 
 /**
@@ -328,31 +616,26 @@ function ChartDownloadMenu({
   };
 
   return (
-    <div
-      className={`pointer-events-none absolute right-3 top-3 z-10 transition-opacity ${
-        open ? "opacity-100" : "opacity-60 group-hover:opacity-100"
-      }`}
-    >
-      <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={busy !== null}
-            className="pointer-events-auto h-8 gap-1.5 rounded-lg border-border/70 bg-card/85 px-2.5 text-[11.5px] font-medium shadow-sm backdrop-blur-md hover:bg-card"
-          >
-            {copied ? (
-              <Check className="h-3.5 w-3.5 text-emerald-500" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            <span>Share</span>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy !== null}
+          className="h-8 gap-1.5 rounded-lg border-border/70 bg-background/40 px-2.5 text-[11.5px] font-medium backdrop-blur-md hover:bg-background"
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-emerald-500" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+          <span>Share</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-56 pointer-events-auto"
+          className="w-60"
           sideOffset={6}
         >
           <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">
@@ -398,6 +681,312 @@ function ChartDownloadMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+  );
+}
+
+/**
+ * Customize popover — the "make this look how I want it" surface.
+ *
+ * Why a popover rather than an inline panel: the chart card is already
+ * dense (header / chart / footer / share menu). A popover keeps the
+ * customization knobs one click away without growing the resting-state
+ * footprint. Changes apply live to the chart underneath so the user
+ * sees the effect immediately.
+ *
+ * Everything edits config.options (Record<string, unknown> on the
+ * server-side type) so persistence is a no-op — just save the cell.
+ */
+function ChartCustomize({
+  config,
+  onChange,
+}: {
+  config: ChartConfig;
+  onChange: (next: ChartConfig) => void;
+}) {
+  const opts = readOptions(config);
+  const paletteKey: PaletteKey = opts.palette ?? DEFAULT_OPTIONS.palette;
+  const heightKey: HeightKey = opts.height ?? DEFAULT_OPTIONS.height;
+  const yFormat: YFormatKey = opts.yFormat ?? DEFAULT_OPTIONS.yFormat;
+
+  const patch = (
+    field: keyof ChartConfig | "options",
+    value: ChartConfig[keyof ChartConfig] | Partial<ChartOptionsExt>,
+  ) => {
+    if (field === "options") {
+      onChange({
+        ...config,
+        options: { ...(config.options ?? {}), ...(value as object) },
+      });
+    } else {
+      onChange({ ...config, [field]: value });
+    }
+  };
+
+  const reset = () =>
+    onChange({
+      ...config,
+      title: null,
+      subtitle: null,
+      options: {},
+    });
+
+  // Hide line/area-specific toggles for chart types where they don't apply.
+  const isLineish =
+    config.chart_type === "line" ||
+    config.chart_type === "time_series" ||
+    config.chart_type === "area";
+  const isBarish =
+    config.chart_type === "bar" ||
+    config.chart_type === "stacked_bar" ||
+    config.chart_type === "histogram";
+  const hasAxes =
+    config.chart_type !== "kpi" &&
+    config.chart_type !== "pie" &&
+    config.chart_type !== "donut";
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 rounded-lg border-border/70 bg-background/40 px-2.5 text-[11.5px] font-medium backdrop-blur-md hover:bg-background"
+        >
+          <Sliders className="h-3.5 w-3.5" />
+          <span>Customize</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" sideOffset={6} className="w-80 max-h-[70vh] overflow-y-auto p-0">
+        <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+          <div className="text-[12.5px] font-semibold tracking-tight">
+            Customize chart
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={reset}
+            className="h-6 gap-1 px-2 text-[10.5px] text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="h-3 w-3" /> Reset
+          </Button>
+        </div>
+
+        <CustomizeSection title="Title & description">
+          <Label htmlFor="chart-title" className="text-[11px] text-muted-foreground">
+            Title
+          </Label>
+          <Input
+            id="chart-title"
+            value={config.title ?? ""}
+            placeholder="Auto"
+            onChange={(e) => patch("title", e.target.value || null)}
+            className="h-8 text-[12.5px]"
+          />
+          <Label htmlFor="chart-subtitle" className="mt-1 text-[11px] text-muted-foreground">
+            Subtitle
+          </Label>
+          <Input
+            id="chart-subtitle"
+            value={config.subtitle ?? ""}
+            placeholder="Auto"
+            onChange={(e) => patch("subtitle", e.target.value || null)}
+            className="h-8 text-[12.5px]"
+          />
+        </CustomizeSection>
+
+        <CustomizeSection title="Look">
+          <Label className="text-[11px] text-muted-foreground">Palette</Label>
+          <div className="mt-1 grid grid-cols-5 gap-1.5">
+            {(Object.keys(PALETTES) as PaletteKey[]).map((key) => (
+              <PaletteSwatch
+                key={key}
+                paletteKey={key}
+                selected={paletteKey === key}
+                onSelect={() => patch("options", { palette: key })}
+              />
+            ))}
+          </div>
+          <Label className="mt-3 text-[11px] text-muted-foreground">Height</Label>
+          <Segmented<HeightKey>
+            value={heightKey}
+            options={[
+              { label: "Compact", value: "compact" },
+              { label: "Standard", value: "standard" },
+              { label: "Tall", value: "tall" },
+            ]}
+            onChange={(v) => patch("options", { height: v })}
+          />
+        </CustomizeSection>
+
+        {hasAxes && (
+          <CustomizeSection title="Numbers">
+            <Label className="text-[11px] text-muted-foreground">
+              Y-axis format
+            </Label>
+            <Segmented<YFormatKey>
+              value={yFormat}
+              options={[
+                { label: "Auto", value: "auto" },
+                { label: "Number", value: "number" },
+                { label: "$", value: "currency" },
+                { label: "%", value: "percent" },
+              ]}
+              onChange={(v) => patch("options", { yFormat: v })}
+            />
+          </CustomizeSection>
+        )}
+
+        <CustomizeSection title="Show">
+          <ToggleRow
+            label="Legend"
+            description="Show series labels under the chart"
+            checked={opts.showLegend ?? DEFAULT_OPTIONS.showLegend}
+            onChange={(v) => patch("options", { showLegend: v })}
+          />
+          {hasAxes && (
+            <ToggleRow
+              label="Gridlines"
+              description="Horizontal dashed reference lines"
+              checked={opts.showGridlines ?? DEFAULT_OPTIONS.showGridlines}
+              onChange={(v) => patch("options", { showGridlines: v })}
+            />
+          )}
+          {isBarish && (
+            <ToggleRow
+              label="Data labels"
+              description="Print the value on top of each bar"
+              checked={
+                opts.showDataLabels ?? false
+              }
+              onChange={(v) => patch("options", { showDataLabels: v })}
+            />
+          )}
+          {isLineish && (
+            <>
+              <ToggleRow
+                label="Smooth lines"
+                description="Curved spline instead of jagged segments"
+                checked={opts.smoothLines ?? DEFAULT_OPTIONS.smoothLines}
+                onChange={(v) => patch("options", { smoothLines: v })}
+              />
+              <ToggleRow
+                label="Fill area"
+                description="Gradient fill below the line"
+                checked={opts.fillArea ?? DEFAULT_OPTIONS.fillArea}
+                onChange={(v) => patch("options", { fillArea: v })}
+              />
+            </>
+          )}
+        </CustomizeSection>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function CustomizeSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5 border-b border-border/40 px-4 py-3 last:border-b-0">
+      <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { label: string; value: T }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="mt-1 inline-flex w-full rounded-md border border-border/70 bg-muted/30 p-0.5">
+      {options.map((o) => (
+        <button
+          type="button"
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+            value === o.value
+              ? "bg-card text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PaletteSwatch({
+  paletteKey,
+  selected,
+  onSelect,
+}: {
+  paletteKey: PaletteKey;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  // Use the dark variant for the swatch — slightly more vivid, works
+  // on both light and dark popover backgrounds.
+  const colors = PALETTES[paletteKey].dark.slice(0, 4);
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      title={paletteKey}
+      className={`flex h-7 items-center overflow-hidden rounded-md border transition-all ${
+        selected
+          ? "border-primary ring-2 ring-primary/30"
+          : "border-border/70 hover:border-border"
+      }`}
+    >
+      {colors.map((c, i) => (
+        <span
+          key={i}
+          className="block h-full flex-1"
+          style={{ backgroundColor: c }}
+        />
+      ))}
+    </button>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1">
+      <div className="min-w-0 flex-1">
+        <div className="text-[12px] font-medium leading-snug">{label}</div>
+        {description && (
+          <div className="text-[10.5px] leading-snug text-muted-foreground">
+            {description}
+          </div>
+        )}
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   );
 }
@@ -505,20 +1094,25 @@ function buildOption(
   if (!rows.length) return null;
   const type = config.chart_type;
   const yField = Array.isArray(config.y) ? config.y[0] : config.y;
-  const title = config.title
-    ? {
-        text: config.title,
-        left: 20,
-        top: 16,
-        textStyle: {
-          color: theme.text,
-          fontFamily: "var(--font-sans), sans-serif",
-          fontSize: 16,
-          fontWeight: 600,
-          letterSpacing: -0.2,
-        },
-      }
-    : undefined;
+  const userOpts = readOptions(config);
+  // Resolve every customizable knob to a concrete value, falling back to
+  // defaults. `showDataLabels` intentionally stays undefined so the bar
+  // case can still apply its data-density heuristic.
+  const opts = {
+    palette: userOpts.palette ?? DEFAULT_OPTIONS.palette,
+    height: userOpts.height ?? DEFAULT_OPTIONS.height,
+    yFormat: userOpts.yFormat ?? DEFAULT_OPTIONS.yFormat,
+    showLegend: userOpts.showLegend ?? DEFAULT_OPTIONS.showLegend,
+    showGridlines: userOpts.showGridlines ?? DEFAULT_OPTIONS.showGridlines,
+    smoothLines: userOpts.smoothLines ?? DEFAULT_OPTIONS.smoothLines,
+    fillArea: userOpts.fillArea ?? DEFAULT_OPTIONS.fillArea,
+    showDataLabels: userOpts.showDataLabels,
+  };
+  // No internal ECharts title — the chart card renders a richer HTML
+  // header above the canvas with title, auto-generated description,
+  // and metadata. Keeping a redundant title inside the canvas would
+  // duplicate the typography and waste vertical space.
+  const title = undefined;
 
   if (type === "kpi" && yField) {
     return buildKPIOption(rows, yField, config.title ?? yField, theme);
@@ -532,13 +1126,35 @@ function buildOption(
     type === "time_series" ||
     (xValues.length > 0 && xValues.every(isDateLike));
 
+  // No internal title — start the plot area near the top of the canvas
+  // since the HTML chart-card header above already carries the title.
   const baseGrid = {
     left: 56,
     right: 24,
-    top: title ? 56 : 28,
-    bottom: data.length >= 30 ? 44 : 32,
+    top: 18,
+    bottom: (data.length >= 30 ? 44 : 28) + (opts.showLegend ? 28 : 0),
     containLabel: true,
   };
+
+  const yFormatter = makeYFormatter(opts.yFormat);
+  const yAxisBase = baseAxis(theme, "value", false);
+  const yAxis = {
+    ...yAxisBase,
+    splitLine: { ...yAxisBase.splitLine, show: opts.showGridlines },
+    axisLabel: { ...yAxisBase.axisLabel, formatter: yFormatter },
+  };
+
+  const legend = opts.showLegend
+    ? {
+        show: true,
+        bottom: data.length >= 30 ? 32 : 8,
+        textStyle: { color: theme.mutedText, fontSize: 12, fontWeight: 500 },
+        itemWidth: 10,
+        itemHeight: 10,
+        itemGap: 14,
+        icon: "circle" as const,
+      }
+    : undefined;
 
   const xAxis = treatXAsTime
     ? {
@@ -604,14 +1220,15 @@ function buildOption(
         color: theme.palette,
         backgroundColor: theme.surface,
         title,
+        legend,
         tooltip: { ...tooltip, valueFormatter: formatFull },
         grid: baseGrid,
         xAxis,
-        yAxis: baseAxis(theme, "value", false),
+        yAxis,
         dataZoom,
         animationDuration: 600,
         animationEasing: "cubicOut" as const,
-        series: [lineSeries(true, false)],
+        series: [lineSeries(opts.smoothLines, opts.fillArea)],
       };
 
     case "area":
@@ -619,14 +1236,15 @@ function buildOption(
         color: theme.palette,
         backgroundColor: theme.surface,
         title,
+        legend,
         tooltip: { ...tooltip, valueFormatter: formatFull },
         grid: baseGrid,
         xAxis,
-        yAxis: baseAxis(theme, "value", false),
+        yAxis,
         dataZoom,
         animationDuration: 600,
         animationEasing: "cubicOut" as const,
-        series: [lineSeries(true, true)],
+        series: [lineSeries(opts.smoothLines, true)],
       };
 
     case "bar":
@@ -635,10 +1253,11 @@ function buildOption(
         color: theme.palette,
         backgroundColor: theme.surface,
         title,
+        legend,
         tooltip: { ...tooltip, valueFormatter: formatFull },
         grid: baseGrid,
         xAxis,
-        yAxis: baseAxis(theme, "value", false),
+        yAxis,
         dataZoom,
         animationDuration: 600,
         animationEasing: "cubicOut" as const,
@@ -672,14 +1291,19 @@ function buildOption(
               },
             },
             label:
-              yValues.length <= 14
+              (
+                opts.showDataLabels === undefined
+                  ? yValues.length <= 14
+                  : opts.showDataLabels
+              )
                 ? {
                     show: true,
                     position: "top" as const,
                     color: theme.text,
                     fontSize: 12,
                     fontWeight: 600,
-                    formatter: (p: { value: number }) => formatTick(p.value),
+                    formatter: (p: { value: number }) =>
+                      yFormatter(p.value),
                   }
                 : { show: false },
           },
@@ -691,10 +1315,11 @@ function buildOption(
         color: theme.palette,
         backgroundColor: theme.surface,
         title,
+        legend,
         tooltip,
         grid: baseGrid,
         xAxis,
-        yAxis: baseAxis(theme, "value", false),
+        yAxis,
         dataZoom,
         series: [
           {
@@ -721,7 +1346,7 @@ function buildOption(
         },
         grid: baseGrid,
         xAxis: baseAxis(theme, "value", true),
-        yAxis: baseAxis(theme, "value", false),
+        yAxis,
         series: [
           {
             type: "scatter" as const,
@@ -832,7 +1457,7 @@ function buildOption(
         tooltip,
         grid: baseGrid,
         xAxis,
-        yAxis: baseAxis(theme, "value", false),
+        yAxis,
         series: [
           {
             type: "bar" as const,
@@ -850,7 +1475,7 @@ function buildOption(
         tooltip,
         grid: baseGrid,
         xAxis,
-        yAxis: baseAxis(theme, "value", false),
+        yAxis,
         series: [
           {
             type: "bar" as const,

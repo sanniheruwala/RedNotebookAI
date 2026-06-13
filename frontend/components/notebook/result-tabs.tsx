@@ -46,7 +46,7 @@ export function ResultTabs({ cell, result }: { cell: SQLCell; result: QueryResul
       </TabsContent>
       <TabsContent value="chart" className="space-y-3">
         <ChartBuilder result={result} config={chartConfig} onChange={onChangeChart} />
-        <ChartView result={result} config={chartConfig} />
+        <ChartView result={result} config={chartConfig} onChange={onChangeChart} />
       </TabsContent>
     </Tabs>
   );
