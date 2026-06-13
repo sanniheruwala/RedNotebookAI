@@ -171,7 +171,7 @@ function ChartTab({
         </div>
         <ChartBuilder result={result} config={chartConfig} onChange={onChangeChart} />
         {!isUnconfigured(chartConfig) && (
-          <ChartView result={result} config={chartConfig} />
+          <ChartView result={result} config={chartConfig} onChange={onChangeChart} />
         )}
       </div>
     );
@@ -198,7 +198,7 @@ function ChartTab({
           Customize this chart
         </Button>
       </div>
-      <ChartView result={result} config={chartConfig} />
+      <ChartView result={result} config={chartConfig} onChange={onChangeChart} />
     </div>
   );
 }
