@@ -3,6 +3,31 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
+import type { EChartsType } from "echarts";
+import {
+  Check,
+  Copy,
+  Download,
+  FileCode2,
+  FileImage,
+  FileSpreadsheet,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  copyChartPngToClipboard,
+  downloadChartPng,
+  downloadChartSvg,
+  downloadResultCsv,
+} from "@/lib/chart-export";
 import type { ChartConfig, QueryResultPayload } from "@/lib/types";
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
@@ -141,6 +166,7 @@ export function ChartView({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const theme = React.useMemo(() => buildTheme(isDark), [isDark]);
+  const echartsInstanceRef = React.useRef<EChartsType | null>(null);
 
   const option = React.useMemo(
     () => buildOption(result, config, theme),
@@ -182,12 +208,17 @@ export function ChartView({
 
   return (
     <div
-      className={`overflow-hidden rounded-2xl border bg-card ring-1 ring-inset ${
+      className={`group relative overflow-hidden rounded-2xl border bg-card ring-1 ring-inset ${
         isDark
           ? "border-border/60 ring-white/5 shadow-[0_18px_48px_-24px_rgba(0,0,0,0.55)]"
           : "border-border ring-black/[0.03] shadow-[0_18px_40px_-20px_rgba(15,23,42,0.18)]"
       }`}
     >
+      <ChartDownloadMenu
+        getInstance={() => echartsInstanceRef.current}
+        result={result}
+        config={config}
+      />
       <ReactECharts
         option={option}
         style={{ height: 460, width: "100%" }}
@@ -195,9 +226,189 @@ export function ChartView({
         lazyUpdate
         opts={useSvg ? { renderer: "svg" } : { renderer: "canvas", devicePixelRatio: dpr }}
         theme={isDark ? "dark" : undefined}
+        onChartReady={(instance) => {
+          echartsInstanceRef.current = instance as EChartsType;
+        }}
       />
     </div>
   );
+}
+
+/**
+ * Download menu overlaid in the top-right of the chart card.
+ *
+ * Lives next to the chart instead of in the toolbar above because the
+ * "share this chart" intent is contextual to a specific chart, not the
+ * whole result tab. The menu is visible at low opacity and lifts to
+ * full opacity on hover so it doesn't compete with the chart itself
+ * for attention but is one click away when needed.
+ */
+function ChartDownloadMenu({
+  getInstance,
+  result,
+  config,
+}: {
+  getInstance: () => EChartsType | null;
+  result: QueryResultPayload;
+  config: ChartConfig;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState<null | "png" | "svg" | "copy" | "csv">(
+    null,
+  );
+  const [copied, setCopied] = React.useState(false);
+
+  const baseName = React.useMemo(() => deriveChartName(config), [config]);
+
+  const runWithInstance = async (
+    kind: "png" | "svg" | "copy",
+    fn: (instance: EChartsType) => Promise<unknown>,
+    successMessage: string,
+  ) => {
+    const instance = getInstance();
+    if (!instance) {
+      toast.error("Chart not ready yet — try again in a moment.");
+      return;
+    }
+    setBusy(kind);
+    try {
+      await fn(instance);
+      toast.success(successMessage);
+      if (kind === "copy") {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+      }
+    } catch (err) {
+      console.error("chart export failed", err);
+      toast.error("Couldn't export the chart. Check the browser console.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onDownloadPng = () =>
+    runWithInstance(
+      "png",
+      (inst) => downloadChartPng(inst, baseName),
+      `Downloaded ${baseName}.png`,
+    );
+
+  const onDownloadSvg = () =>
+    runWithInstance(
+      "svg",
+      (inst) => downloadChartSvg(inst, baseName),
+      `Downloaded ${baseName}.svg`,
+    );
+
+  const onCopyImage = () =>
+    runWithInstance(
+      "copy",
+      async (inst) => {
+        const ok = await copyChartPngToClipboard(inst);
+        if (!ok) {
+          throw new Error(
+            "Clipboard write rejected (insecure context or no permission).",
+          );
+        }
+      },
+      "Image copied to clipboard",
+    );
+
+  const onDownloadCsv = () => {
+    setBusy("csv");
+    try {
+      downloadResultCsv(result.rows, result.columns, baseName);
+      toast.success(`Downloaded ${baseName}.csv`);
+    } catch (err) {
+      console.error("csv export failed", err);
+      toast.error("Couldn't export CSV.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div
+      className={`pointer-events-none absolute right-3 top-3 z-10 transition-opacity ${
+        open ? "opacity-100" : "opacity-60 group-hover:opacity-100"
+      }`}
+    >
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy !== null}
+            className="pointer-events-auto h-8 gap-1.5 rounded-lg border-border/70 bg-card/85 px-2.5 text-[11.5px] font-medium shadow-sm backdrop-blur-md hover:bg-card"
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-500" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            <span>Share</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-56 pointer-events-auto"
+          sideOffset={6}
+        >
+          <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">
+            Download or copy
+          </DropdownMenuLabel>
+          <DropdownMenuItem onSelect={onDownloadPng} disabled={busy !== null}>
+            <FileImage className="mr-2 h-3.5 w-3.5" />
+            <div className="flex flex-1 flex-col">
+              <span>Download as PNG</span>
+              <span className="text-[10.5px] text-muted-foreground">
+                High-res raster · paste anywhere
+              </span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onDownloadSvg} disabled={busy !== null}>
+            <FileCode2 className="mr-2 h-3.5 w-3.5" />
+            <div className="flex flex-1 flex-col">
+              <span>Download as SVG</span>
+              <span className="text-[10.5px] text-muted-foreground">
+                Vector · scales without blur
+              </span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onCopyImage} disabled={busy !== null}>
+            <Copy className="mr-2 h-3.5 w-3.5" />
+            <div className="flex flex-1 flex-col">
+              <span>Copy image to clipboard</span>
+              <span className="text-[10.5px] text-muted-foreground">
+                Paste into Slack, Docs, email
+              </span>
+            </div>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onDownloadCsv} disabled={busy !== null}>
+            <FileSpreadsheet className="mr-2 h-3.5 w-3.5" />
+            <div className="flex flex-1 flex-col">
+              <span>Download data as CSV</span>
+              <span className="text-[10.5px] text-muted-foreground">
+                {result.row_count.toLocaleString()} rows · the numbers behind
+                this chart
+              </span>
+            </div>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+function deriveChartName(config: ChartConfig): string {
+  if (config.title && config.title.trim().length > 0) {
+    return config.title.trim();
+  }
+  const x = config.x ?? "x";
+  const y = Array.isArray(config.y) ? config.y[0] : config.y ?? "y";
+  return `${config.chart_type}-${x}-by-${y}`;
 }
 
 /**
