@@ -246,9 +246,27 @@ export function ChartView({
   );
   const echartsInstanceRef = React.useRef<EChartsType | null>(null);
 
+  // Memo on the fields that actually affect the chart's ECharts option.
+  // Title/subtitle are HTML-only — including them here would force the
+  // canvas to redraw on every keystroke when the user is renaming the
+  // chart, which feels laggy and triggers ECharts' animation.
+  const optionsKey = config.options;
+  const filtersKey = config.filters;
+  const yKey = Array.isArray(config.y) ? config.y.join(",") : config.y;
   const option = React.useMemo(
     () => buildOption(result, config, theme),
-    [result, config, theme],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      result,
+      config.chart_type,
+      config.x,
+      yKey,
+      config.color,
+      config.aggregation,
+      optionsKey,
+      filtersKey,
+      theme,
+    ],
   );
 
   if (!option) {
@@ -298,7 +316,7 @@ export function ChartView({
         aria-hidden
         className="absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-transparent via-primary/55 to-transparent"
       />
-      <ChartHeader result={result} config={config}>
+      <ChartHeader result={result} config={config} onChange={onChange}>
         {onChange && (
           <ChartCustomize config={config} onChange={onChange} />
         )}
@@ -336,27 +354,45 @@ export function ChartView({
 function ChartHeader({
   result,
   config,
+  onChange,
   children,
 }: {
   result: QueryResultPayload;
   config: ChartConfig;
+  onChange?: (next: ChartConfig) => void;
   children?: React.ReactNode;
 }) {
-  const title =
-    (config.title && config.title.trim()) || autoTitle(config);
-  const subtitle =
+  const titleResolved = (config.title && config.title.trim()) || autoTitle(config);
+  const subtitleResolved =
     (config.subtitle && config.subtitle.trim()) || autoSubtitle(config);
+  const editable = !!onChange;
 
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border/60 bg-gradient-to-b from-background/40 to-transparent px-5 pt-4 pb-3">
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-[15px] font-semibold leading-snug tracking-tight text-foreground">
-          {title}
-        </h3>
-        {subtitle && (
-          <p className="mt-0.5 truncate text-[11.5px] leading-snug text-muted-foreground">
-            {subtitle}
-          </p>
+        <EditableText
+          value={config.title ?? ""}
+          display={titleResolved}
+          placeholder="Click to add a title"
+          editable={editable}
+          ariaLabel="Chart title"
+          variant="title"
+          onCommit={(next) =>
+            onChange?.({ ...config, title: next.length ? next : null })
+          }
+        />
+        {(subtitleResolved || editable) && (
+          <EditableText
+            value={config.subtitle ?? ""}
+            display={subtitleResolved ?? ""}
+            placeholder="Add a description"
+            editable={editable}
+            ariaLabel="Chart subtitle"
+            variant="subtitle"
+            onCommit={(next) =>
+              onChange?.({ ...config, subtitle: next.length ? next : null })
+            }
+          />
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -369,6 +405,123 @@ function ChartHeader({
         {children}
       </div>
     </div>
+  );
+}
+
+/**
+ * Click-to-edit text — looks like display copy until the user clicks
+ * (or tabs to) it, then becomes an inline input. Enter / blur commits;
+ * Escape reverts to the value at the start of the edit session.
+ *
+ * The single biggest UX win in the chart card: most users want to
+ * rename the chart, and the Customize popover is overkill for that.
+ * One click on the title → type → tab away. That's it.
+ */
+function EditableText({
+  value,
+  display,
+  placeholder,
+  editable,
+  ariaLabel,
+  variant,
+  onCommit,
+}: {
+  /** The persisted value (may be empty when relying on `display`). */
+  value: string;
+  /** The text to show in read mode (auto-derived title/subtitle goes here). */
+  display: string;
+  placeholder: string;
+  editable: boolean;
+  ariaLabel: string;
+  variant: "title" | "subtitle";
+  onCommit: (next: string) => void;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(value);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  // Keep draft in sync if the value changes externally (e.g., another
+  // tab edits via the Customize popover while this one is in read mode).
+  React.useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
+  const classes =
+    variant === "title"
+      ? "text-[15px] font-semibold leading-snug tracking-tight text-foreground"
+      : "text-[11.5px] leading-snug text-muted-foreground";
+
+  if (!editing) {
+    const shown = display || placeholder;
+    const isPlaceholder = !display;
+    return (
+      <button
+        type="button"
+        disabled={!editable}
+        onClick={() => {
+          if (editable) {
+            setDraft(value);
+            setEditing(true);
+          }
+        }}
+        title={editable ? "Click to edit" : undefined}
+        aria-label={ariaLabel}
+        className={`block w-full truncate rounded-sm text-left ${classes} ${
+          editable
+            ? "cursor-text hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+            : "cursor-default"
+        } ${
+          isPlaceholder
+            ? "text-muted-foreground/60 italic"
+            : ""
+        } ${variant === "subtitle" ? "mt-0.5" : ""}`}
+      >
+        {shown}
+      </button>
+    );
+  }
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    setEditing(false);
+    if (trimmed !== value.trim()) {
+      onCommit(trimmed);
+    }
+  };
+
+  const cancel = () => {
+    setDraft(value);
+    setEditing(false);
+  };
+
+  return (
+    <input
+      ref={(el) => {
+        inputRef.current = el;
+        if (el) {
+          el.focus();
+          el.select();
+        }
+      }}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          inputRef.current?.blur();
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          cancel();
+        }
+      }}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      className={`block w-full rounded-sm border border-primary/40 bg-background px-1 py-0 outline-none ring-1 ring-primary/30 ${classes} ${
+        variant === "subtitle" ? "mt-0.5" : ""
+      }`}
+    />
   );
 }
 
