@@ -3,7 +3,7 @@
 Free-forever home for the live demo. **No credit card required** — a
 Hugging Face account is enough. The Space runs the published Docker
 image with `DEMO_MODE=true` and gives you a public URL like
-`https://sanniheruwala-rednotebook-demo.hf.space`.
+`https://heruwala-rednotebook-demo.hf.space`.
 
 Why HF Spaces over Fly.io / Render / Railway: those have all moved to
 "card required" even on free tiers. HF Spaces hasn't, and it's the
@@ -146,10 +146,10 @@ If the build fails:
 ## Step 5 — Share the URL
 
 Your Space lives at:
-`https://huggingface.co/spaces/sanniheruwala/rednotebook-demo`
+`https://huggingface.co/spaces/heruwala/rednotebook-demo`
 
 The bare app URL (drop the `huggingface.co/spaces/` prefix) is:
-`https://sanniheruwala-rednotebook-demo.hf.space`
+`https://heruwala-rednotebook-demo.hf.space`
 
 Use the second one in your LinkedIn / HN / README links — it's the
 direct embed without HF's wrapper UI. Update the project README's
