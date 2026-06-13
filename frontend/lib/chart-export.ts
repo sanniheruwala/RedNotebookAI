@@ -86,39 +86,33 @@ export function downloadResultCsv(
 /* ------------------------ format conversion ----------------------- */
 
 /**
- * Get a PNG data URL from the chart. ECharts' getDataURL only knows how
- * to emit a raster from the canvas renderer — if the live chart is in
- * SVG mode (we use SVG for <3k points), we briefly mount a hidden
- * canvas copy of the same option and grab the PNG from there.
+ * Get a PNG data URL from the chart. We always go through a hidden
+ * headless canvas instance rather than asking the live chart for a
+ * PNG — when the live chart is in SVG renderer mode (which we use for
+ * <3k points), getDataURL doesn't reliably produce a real raster and
+ * the result is a blank or partial image. ~150ms extra is well worth
+ * always-correct downloads.
  */
 async function getPngDataUrl(instance: EChartsType): Promise<string> {
-  try {
-    const direct = instance.getDataURL({
-      type: "png",
-      pixelRatio: PIXEL_RATIO,
-      backgroundColor: "transparent",
-    });
-    // ECharts in SVG mode returns a data: URL pointing at the SVG, not
-    // an image/png. Detect that and fall through to headless render.
-    if (direct.startsWith("data:image/png")) return direct;
-  } catch {
-    // fall through
-  }
-
   const option = instance.getOption() as unknown;
   return renderHeadless(option, "canvas", (chart) =>
     chart.getDataURL({
       type: "png",
       pixelRatio: PIXEL_RATIO,
-      backgroundColor: "transparent",
+      // White background instead of transparent: every consumer the
+      // user paste into (Slack, Docs, email, Notion) renders behind
+      // a light surface anyway, and a solid bg avoids the "looks empty
+      // in some viewer" reports we get with transparent PNGs.
+      backgroundColor: "#ffffff",
     }),
   );
 }
 
 async function getSvgString(instance: EChartsType): Promise<string> {
-  // renderToSVGString exists only when the chart was initialised with
-  // renderer: 'svg'. The signature isn't on EChartsType pre-5.5, so we
-  // duck-type the call.
+  // Try the live chart first — if it's in SVG renderer mode,
+  // renderToSVGString returns the exact SVG already on screen which
+  // is the fastest path. Otherwise fall through to a headless SVG
+  // render so users can still download an SVG of a canvas-mode chart.
   const live = (instance as unknown as {
     renderToSVGString?: () => string;
   }).renderToSVGString;
@@ -145,7 +139,10 @@ async function renderHeadless<T>(
 ): Promise<T> {
   const echarts = await import("echarts");
   const host = document.createElement("div");
-  host.style.position = "fixed";
+  // Off-screen but in normal flow so the browser computes layout for
+  // it. Using visibility:hidden + a far-off left offset rather than
+  // display:none — ECharts needs a measurable element to size itself.
+  host.style.position = "absolute";
   host.style.left = "-99999px";
   host.style.top = "0";
   host.style.width = `${EXPORT_WIDTH}px`;
@@ -158,7 +155,32 @@ async function renderHeadless<T>(
       width: EXPORT_WIDTH,
       height: EXPORT_HEIGHT,
     });
-    chart.setOption(option as Parameters<EChartsType["setOption"]>[0]);
+    // Disable animation explicitly — without this, getDataURL fires
+    // immediately after setOption and captures the chart mid-grow,
+    // which is the most common "blank export" failure mode.
+    const optionWithoutAnimation = {
+      ...(option as Record<string, unknown>),
+      animation: false,
+      animationDuration: 0,
+      animationDurationUpdate: 0,
+      // DataZoom slider isn't relevant for an exported still — and it
+      // sometimes carries a stale range from the live chart's pan.
+      dataZoom: undefined,
+    };
+    chart.setOption(
+      optionWithoutAnimation as Parameters<EChartsType["setOption"]>[0],
+      true, // notMerge: rebuild from scratch, no inherited state
+    );
+    // One layout frame so the renderer has produced its final pixels
+    // before we read them. requestAnimationFrame fires after the
+    // browser's next paint preparation step.
+    await new Promise<void>((resolve) => {
+      if (typeof window === "undefined") {
+        resolve();
+        return;
+      }
+      window.requestAnimationFrame(() => resolve());
+    });
     const out = emit(chart);
     chart.dispose();
     return out;

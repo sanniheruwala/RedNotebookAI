@@ -940,8 +940,19 @@ function ChartCustomize({
           <span>Customize</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={6} className="w-80 max-h-[70vh] overflow-y-auto p-0">
-        <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+      <PopoverContent
+        align="end"
+        side="bottom"
+        sideOffset={6}
+        collisionPadding={12}
+        // Hard-cap the popover to whatever space Radix has measured —
+        // its built-in collision detection populates this CSS var with
+        // the largest height that fits without going off-screen. Then
+        // flex + an inner scroll container keep the header pinned and
+        // the body scrollable on short viewports.
+        className="flex w-80 max-w-[calc(100vw-24px)] flex-col p-0 max-h-[var(--radix-popover-content-available-height)]"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-popover px-4 py-2.5">
           <div className="text-[12.5px] font-semibold tracking-tight">
             Customize chart
           </div>
@@ -955,6 +966,8 @@ function ChartCustomize({
             <RotateCcw className="h-3 w-3" /> Reset
           </Button>
         </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 
         <CustomizeSection title="Title & description">
           <Label htmlFor="chart-title" className="text-[11px] text-muted-foreground">
@@ -1063,6 +1076,7 @@ function ChartCustomize({
             </>
           )}
         </CustomizeSection>
+        </div>
       </PopoverContent>
     </Popover>
   );
