@@ -293,7 +293,10 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
   }, [isRunning, startedAt]);
 
   return (
-    <div className="card-premium group/cell relative overflow-hidden">
+    <div
+      data-tour-anchor="sql-cell"
+      className="card-premium group/cell relative overflow-hidden"
+    >
       <div
         className={`absolute inset-y-0 left-0 w-[3px] transition-all ${
           isRunning
@@ -517,6 +520,7 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
                   <Button
                     size="sm"
                     variant="ghost"
+                    data-tour-anchor="summarize-button"
                     onClick={() => summarize.mutate()}
                     disabled={summarize.isPending || isRunning || !hasResult}
                     className="h-8 gap-1.5"

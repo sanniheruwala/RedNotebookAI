@@ -55,7 +55,7 @@ export function FilesSection() {
   };
 
   return (
-    <>
+    <div data-tour-anchor="files-section">
       <div className="border-b border-t bg-muted/20 px-4 py-2 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
         <div className="flex items-center justify-between">
           <span>Files</span>
@@ -145,7 +145,7 @@ export function FilesSection() {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

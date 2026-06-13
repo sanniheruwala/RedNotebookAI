@@ -19,7 +19,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, Sparkles, FileText, BarChart3, BookOpen, GripVertical } from "lucide-react";
+import { ArrowRight, BarChart3, BookOpen, Database, FileText, GripVertical, Plus, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -107,7 +107,22 @@ export function NotebookCanvas() {
     <main className="app-mesh relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
       <ScrollArea className="scrollbar-thin min-w-0 flex-1">
         <div className="mx-auto w-full min-w-0 space-y-4 px-6 py-6 xl:px-10">
-          {cells.length === 0 && <EmptyState />}
+          {cells.length === 0 && (
+            <EmptyState
+              onAddSql={() => {
+                addCell("sql");
+                requestImmediateSave();
+              }}
+              onAddMarkdown={() => {
+                addCell("markdown");
+                requestImmediateSave();
+              }}
+              onAddAi={() => {
+                addCell("ai_prompt");
+                requestImmediateSave();
+              }}
+            />
+          )}
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={cells.map((c) => c.id)} strategy={verticalListSortingStrategy}>
@@ -197,28 +212,125 @@ function SortableCell({
   );
 }
 
-function EmptyState() {
+function EmptyState({
+  onAddSql,
+  onAddMarkdown,
+  onAddAi,
+}: {
+  onAddSql: () => void;
+  onAddMarkdown: () => void;
+  onAddAi: () => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="card-premium relative overflow-hidden p-10 text-center"
+      className="card-premium relative overflow-hidden p-8"
     >
       <div className="absolute inset-x-0 -top-32 mx-auto h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
       <div className="relative">
-        <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary/25 to-primary/5 ring-1 ring-primary/30">
-          <Sparkles className="h-5 w-5 text-primary" />
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary/25 to-primary/5 ring-1 ring-primary/30">
+            <Sparkles className="h-5 w-5 text-primary" />
+          </div>
+          <div className="text-balance text-lg font-semibold tracking-tightish">
+            Start your data story
+          </div>
+          <p className="mx-auto mt-1 max-w-md text-balance text-sm leading-relaxed text-muted-foreground">
+            Pick a starting move. You can mix cell types in any order later.
+          </p>
         </div>
-        <div className="text-balance text-lg font-semibold tracking-tightish">
-          Start your data story
+        <div className="grid gap-2.5 sm:grid-cols-3">
+          <StartCard
+            icon={<Upload className="h-4 w-4 text-primary" />}
+            title="Drop a CSV"
+            body="Drag a CSV / Parquet / JSON file anywhere. DuckDB picks it up as a queryable table instantly."
+            hint="Or click the + in the Files panel"
+            cta="Drag a file →"
+            onClick={() => {
+              // No direct upload action from here — guide the user to the
+              // window-level drop zone instead. Clicking adds a SQL cell so
+              // they can also write `SELECT * FROM <file>` after dropping.
+              onAddSql();
+            }}
+          />
+          <StartCard
+            icon={<Database className="h-4 w-4 text-primary" />}
+            title="Run a SQL cell"
+            body="Write a query against the active connection. ⌘↵ runs it; click Profile to see column stats."
+            cta="Add SQL cell"
+            ctaIcon={<ArrowRight className="h-3 w-3" />}
+            onClick={onAddSql}
+            highlight
+          />
+          <StartCard
+            icon={<Sparkles className="h-4 w-4 text-primary" />}
+            title="Ask AI"
+            body="Describe what you want in plain English and the AI provider drafts the SQL — promote any reply to a SQL cell."
+            cta="Add Ask AI cell"
+            ctaIcon={<ArrowRight className="h-3 w-3" />}
+            onClick={onAddAi}
+          />
         </div>
-        <p className="mx-auto mt-1 max-w-sm text-balance text-sm leading-relaxed text-muted-foreground">
-          Add a SQL cell to query Trino, a Markdown cell to narrate, or ask AI to
-          draft a query in plain English.
-        </p>
+        <div className="mt-5 text-center">
+          <button
+            type="button"
+            onClick={onAddMarkdown}
+            className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Or start with a Markdown intro cell →
+          </button>
+        </div>
       </div>
     </motion.div>
+  );
+}
+
+function StartCard({
+  icon,
+  title,
+  body,
+  cta,
+  hint,
+  ctaIcon,
+  onClick,
+  highlight = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  cta: string;
+  hint?: string;
+  ctaIcon?: React.ReactNode;
+  onClick: () => void;
+  highlight?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group flex flex-col rounded-xl border bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 ${
+        highlight ? "ring-1 ring-primary/30" : ""
+      }`}
+    >
+      <div className="mb-2 grid h-8 w-8 place-items-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
+        {icon}
+      </div>
+      <div className="text-[13.5px] font-semibold leading-snug tracking-tightish">
+        {title}
+      </div>
+      <p className="mt-1 flex-1 text-[12px] leading-relaxed text-muted-foreground">
+        {body}
+      </p>
+      {hint && (
+        <div className="mt-2 text-[10px] text-muted-foreground/70">{hint}</div>
+      )}
+      <div className="mt-3 inline-flex items-center gap-1 text-[11.5px] font-medium text-primary opacity-80 transition-opacity group-hover:opacity-100">
+        {cta}
+        {ctaIcon}
+      </div>
+    </button>
   );
 }
 

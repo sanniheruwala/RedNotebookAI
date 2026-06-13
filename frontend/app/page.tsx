@@ -9,6 +9,8 @@ import { CommandPalette } from "@/components/command-palette";
 import { ResizableSidebar } from "@/components/resizable-sidebar";
 import { KnowledgeDrawer } from "@/components/panels/knowledge-drawer";
 import { FilesDropOverlay } from "@/components/sidebar/files-section";
+import { OnboardingTour } from "@/components/onboarding-tour";
+import { DemoBanner } from "@/components/demo-banner";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { useConnectionMigration } from "@/hooks/use-connection-migration";
 import { useUIStore } from "@/store/ui-store";
@@ -46,6 +48,7 @@ export default function HomePage() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
+      <DemoBanner />
       <Topbar />
       <div className="group/layout flex h-[calc(100vh-3.5rem)] overflow-hidden">
         <ResizableSidebar
@@ -68,6 +71,7 @@ export default function HomePage() {
       </div>
       <CommandPalette />
       <FilesDropOverlay />
+      <OnboardingTour />
     </div>
   );
 }

@@ -83,6 +83,16 @@ def create_notebook(
 def list_notebooks(
     storage: NotebookStorage = Depends(notebook_storage_dep),
 ) -> NotebookListResponse:
+    # Seed bundled sample notebooks the first time we see an empty user
+    # dir — gives new users (and the public demo) something concrete to
+    # open instead of a blank slate. Idempotent + best-effort: a seed
+    # failure must not block the listing.
+    try:
+        from rednotebook.notebook.seed import seed_if_empty
+
+        seed_if_empty(storage.base_dir)
+    except Exception:  # pragma: no cover - defensive
+        pass
     items = [NotebookListItem(**item) for item in storage.list_notebooks()]
     return NotebookListResponse(notebooks=items)
 

@@ -32,6 +32,7 @@ import { UserMenu } from "@/components/topbar/user-menu";
 import { SettingsDialog } from "@/components/topbar/settings-dialog";
 import { NotebookHistoryDialog } from "@/components/topbar/notebook-history-dialog";
 import { PublishDialog } from "@/components/topbar/publish-dialog";
+import { ReplayTourButton } from "@/components/onboarding-tour";
 import { useActiveNotebook, useNotebookStore } from "@/store/notebook-store";
 import { useConnectionStore } from "@/store/connection-store";
 import { useUIStore } from "@/store/ui-store";
@@ -251,6 +252,7 @@ export function Topbar() {
               size="icon"
               variant={publishOpen ? "default" : "ghost"}
               aria-label="Publish notebook"
+              data-tour-anchor="publish-button"
               onClick={() => setPublishOpen(true)}
             >
               <Share2 className="h-4 w-4" />
@@ -265,6 +267,7 @@ export function Topbar() {
               size="icon"
               variant={historyOpen ? "default" : "ghost"}
               aria-label="Notebook history"
+              data-tour-anchor="history-button"
               onClick={() => setHistoryOpen(true)}
             >
               <History className="h-4 w-4" />
@@ -279,6 +282,7 @@ export function Topbar() {
               size="icon"
               variant={knowledgeOpen ? "default" : "ghost"}
               aria-label="Knowledge drawer"
+              data-tour-anchor="knowledge-button"
               onClick={toggleKnowledge}
             >
               <BookMarked className="h-4 w-4" />
@@ -305,6 +309,8 @@ export function Topbar() {
             <Kbd>K</Kbd>
           </TooltipContent>
         </Tooltip>
+
+        <ReplayTourButton />
 
         <Tooltip>
           <TooltipTrigger asChild>
