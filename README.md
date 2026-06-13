@@ -228,6 +228,8 @@ Full [architecture write-up](docs/architecture.md).
 
 - [Architecture](docs/architecture.md)
 - [Deployment tiers](docs/deployment.md)
+- [Host a public demo on Hugging Face Spaces (free, no card)](docs/deployment/try-on-huggingface.md)
+- [Host a public demo on Fly.io](docs/deployment/try-rednotebook.md)
 - [Connectors](docs/connectors.md)
 - [AI providers and privacy](docs/ai.md)
 - [Security model](docs/security.md)
