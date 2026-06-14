@@ -102,7 +102,10 @@ def get_provider(settings: Settings | None = None) -> AIProvider:
 
         _log.warning(
             "AI provider %r failed to initialise (%s); falling back to "
-            "MockAIProvider. Check API key + bundled SDK install.",
+            "MockAIProvider. For 'bundled' check the GGUF model at "
+            "/app/models/ + llama-cpp-python install; for 'openai' / "
+            "'anthropic' check the API key + model name; for 'ollama' "
+            "check the server URL.",
             name,
             exc,
         )

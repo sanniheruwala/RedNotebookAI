@@ -49,13 +49,27 @@ _log = logging.getLogger(__name__)
 
 
 # Sensible defaults for a 1.5B coder model on commodity CPU. Tuned for
-# response latency, not maximum quality — context fits 4k tokens which
-# is plenty for schema + history + a prompt, and 512 output tokens is
-# enough for a SQL block + short explanation.
-DEFAULT_CONTEXT_TOKENS = 4096
-DEFAULT_MAX_OUTPUT_TOKENS = 512
-DEFAULT_TEMPERATURE = 0.2
-DEFAULT_TOP_P = 0.9
+# response latency on shared-vCPU environments (HF Space free tier
+# manages ~5-15 tok/sec). Settings biased toward "responds fast even
+# if slightly less clever" rather than "polished but slow".
+DEFAULT_CONTEXT_TOKENS = 2048  # was 4096 — half the prompt budget, twice the headroom for prompt eval speed
+DEFAULT_MAX_OUTPUT_TOKENS = 220  # was 512 — caps every call at ~15-45s on slow CPUs
+DEFAULT_TEMPERATURE = 0.0  # greedy decoding — deterministic + the fastest sampler
+DEFAULT_TOP_P = 1.0
+
+# Qwen 2.5 uses ChatML — the canonical template for the family. We set
+# this explicitly rather than relying on llama-cpp-python's chat_format
+# auto-detection from GGUF metadata, which has been unreliable across
+# versions. The previous "qwen" string was either unregistered or aliased
+# to an outdated template in newer llama-cpp-python releases, causing the
+# model to skip the EOS token and run all the way to max_tokens — that
+# was the "runs forever" symptom users hit on v0.7.26.
+DEFAULT_CHAT_FORMAT = "chatml"
+
+# ChatML's end-of-turn marker. Including this in `stop` is belt-and-
+# suspenders alongside the model's own EOS token — protects against
+# either getting suppressed by a quirk in the GGUF metadata.
+CHATML_STOP_TOKENS: list[str] = ["<|im_end|>", "<|endoftext|>"]
 
 # Bundled image bakes the model at this canonical path. Users can
 # override via env so an air-gapped admin can drop a bigger GGUF in
@@ -132,9 +146,7 @@ def _load_model() -> Any:
         n_threads=cpu_threads,
         n_batch=256,
         verbose=False,
-        # Chat format matters: qwen2.5 uses the ChatML-derived template
-        # that llama.cpp ships natively as "qwen".
-        chat_format="qwen",
+        chat_format=DEFAULT_CHAT_FORMAT,
     )
     return _model_singleton
 
@@ -185,12 +197,19 @@ def _chat(
     temperature: float = DEFAULT_TEMPERATURE,
     stop: list[str] | None = None,
 ) -> str:
-    """Run a single chat-completion call against the bundled model."""
+    """Run a single chat-completion call against the bundled model.
+
+    Stop tokens always include ChatML's ``<|im_end|>`` in addition to
+    anything the caller passes, so a misbehaving prompt can't make the
+    model run to ``max_tokens`` and burn 30+ seconds of CPU.
+    """
     model = _load_model()
     messages = [{"role": "system", "content": system}]
     if history:
         messages.extend(history)
     messages.append({"role": "user", "content": user})
+
+    effective_stop = list(dict.fromkeys((stop or []) + CHATML_STOP_TOKENS))
 
     with _model_lock:
         result = model.create_chat_completion(
@@ -198,7 +217,7 @@ def _chat(
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=DEFAULT_TOP_P,
-            stop=stop or [],
+            stop=effective_stop,
         )
     try:
         return result["choices"][0]["message"]["content"].strip()
@@ -283,7 +302,7 @@ class BundledAIProvider(AIProvider):
             f"User question: {prompt.strip()}\n\n"
             "Return only the SQL."
         )
-        raw = _chat(system, user, history=history, max_tokens=400, stop=["```\n\n"])
+        raw = _chat(system, user, history=history, max_tokens=240, stop=["```\n\n"])
         return _extract_sql_block(raw) or "-- (bundled model returned no SQL)"
 
     def explain_sql(self, sql: str, context: AIContext) -> str:
@@ -294,7 +313,7 @@ class BundledAIProvider(AIProvider):
             "behaviours. Use Markdown bullets. Don't restate the SQL."
         )
         user = f"```sql\n{sql.strip()}\n```"
-        return _chat(system, user, max_tokens=300)
+        return _chat(system, user, max_tokens=200)
 
     def optimize_sql(self, sql: str, context: AIContext) -> str:
         system = (
@@ -304,7 +323,7 @@ class BundledAIProvider(AIProvider):
             "fence, list 1-3 short bullet points explaining what changed."
         )
         user = f"```sql\n{sql.strip()}\n```"
-        return _chat(system, user, max_tokens=420)
+        return _chat(system, user, max_tokens=260)
 
     # ----------------------------------------------------------------- chart
 
@@ -342,7 +361,7 @@ class BundledAIProvider(AIProvider):
             f"Result has {context.schema.row_count} rows. Columns: {cols}."
             f"{sample_text}"
         )
-        return _chat(system, user, max_tokens=320)
+        return _chat(system, user, max_tokens=180)
 
     # ----------------------------------------------------------- infographic
 
@@ -367,7 +386,7 @@ class BundledAIProvider(AIProvider):
         if context.sql:
             user_parts.append(f"SQL:\n```sql\n{context.sql.strip()}\n```")
         user = "\n\n".join(user_parts)
-        raw = _chat(system, user, max_tokens=480)
+        raw = _chat(system, user, max_tokens=300)
         data = _extract_json_block(raw) or {}
         chart = self.suggest_chart(schema, context.sample_rows)
         return InfographicBrief(
