@@ -113,9 +113,20 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove curl gnupg apt-transport-https \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the application + runtime deps from the prebuilt wheel
+# Install the application + runtime deps from the prebuilt wheel.
+#
+# llama-cpp-python doesn't publish a complete matrix of manylinux wheels
+# to PyPI — for some Python / arch combos pip falls through to a source
+# build, which dies here because the runtime stage is python:3.12-slim
+# (no compiler, no cmake). Upstream publishes prebuilt CPU-only wheels
+# to https://abetlen.github.io/llama-cpp-python/whl/cpu covering every
+# supported Python + linux_{x86_64,aarch64} combo. Pointing pip at that
+# index as a fallback lets the install resolve to a real wheel for both
+# arches in our multi-arch buildx matrix.
 COPY --from=python-build /wheels /wheels
-RUN pip install --no-cache-dir /wheels/*.whl \
+RUN pip install --no-cache-dir \
+        --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+        /wheels/*.whl \
     && rm -rf /wheels
 
 # Drop the built frontend export inside the package directory so the FastAPI
