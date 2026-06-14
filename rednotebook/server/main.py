@@ -49,6 +49,14 @@ try:  # pragma: no cover - optional
     import rednotebook.ai.ollama_provider  # noqa: F401
 except Exception:
     pass
+try:  # pragma: no cover - optional
+    # Bundled provider relies on llama-cpp-python + a GGUF file in
+    # /app/models/. If either is missing (pip install without the
+    # Docker image, dev machine without the model), the import fails
+    # gracefully and the registry falls back to mock at request time.
+    import rednotebook.ai.bundled_provider  # noqa: F401
+except Exception:
+    pass
 
 
 def create_app() -> FastAPI:
