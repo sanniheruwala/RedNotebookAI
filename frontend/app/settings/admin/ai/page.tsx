@@ -170,16 +170,19 @@ export default function AdminAIPage() {
             onChange={(e) => set("ai_provider", e.target.value || null)}
           >
             <option value="">Use .env default</option>
-            {(current?.available_providers ?? []).map((p) => (
+            {sortProviders(current?.available_providers ?? []).map((p) => (
               <option key={p} value={p}>
-                {p}
+                {providerLabel(p)}
               </option>
             ))}
           </Select>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Save an API key below and we&apos;ll switch this to the matching
-            provider automatically. Pick a value here if you want to be
-            explicit, or to force the mock provider.
+            <strong>Bundled</strong> runs Qwen 1.5B locally on this machine —
+            free, private, ~3-5s per query, fine for the demo notebook.
+            <strong> OpenAI / Anthropic</strong> are faster and smarter but
+            need an API key. <strong>Ollama</strong> lets you point at a
+            bigger local model you already host. <strong>Mock</strong>
+            returns deterministic stubs (useful for tests).
           </p>
         </div>
       </section>
@@ -509,4 +512,39 @@ function ActiveProviderBanner({
       </div>
     </div>
   );
+}
+
+// Human-readable labels for the provider dropdown. Returns the raw key
+// untouched if we don't have a friendly label — so a future provider
+// addition still renders something rather than disappearing.
+function providerLabel(p: string): string {
+  switch (p) {
+    case "bundled":
+      return "Bundled · Qwen 1.5B (local, no setup)";
+    case "openai":
+      return "OpenAI";
+    case "anthropic":
+      return "Anthropic";
+    case "ollama":
+      return "Ollama (point at a local model server)";
+    case "mock":
+      return "Mock (deterministic stubs)";
+    default:
+      return p;
+  }
+}
+
+// Order the dropdown by "what should a first-time user pick" — bundled
+// first because it works with no setup, then the paid hosted providers,
+// then ollama (self-host), then mock at the bottom.
+function sortProviders(providers: readonly string[]): string[] {
+  const order = ["bundled", "openai", "anthropic", "ollama", "mock"];
+  return [...providers].sort((a, b) => {
+    const ai = order.indexOf(a);
+    const bi = order.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
 }

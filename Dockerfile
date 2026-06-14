@@ -43,6 +43,44 @@ COPY rednotebook ./rednotebook
 RUN pip install --upgrade pip build \
     && python -m build --wheel --outdir /wheels
 
+# ---------- Stage 2b: fetch the bundled GGUF model ----------
+#
+# Pulled in a dedicated stage so the model layer is cached separately
+# from the application layer — bumping the app version doesn't force
+# a re-download of the 1 GB model. We retry up to 5 times because
+# HuggingFace's CDN occasionally times out mid-stream behind CI egress.
+#
+# Model: Qwen2.5-Coder-1.5B-Instruct, Q4_K_M quant (~ 1.0 GB on disk,
+# ~ 1.5 GB resident). Apache 2.0 licensed. The bundled provider
+# (rednotebook/ai/bundled_provider.py) mmaps this at boot.
+FROM debian:bookworm-slim AS model-fetch
+WORKDIR /models
+
+ARG QWEN_MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf?download=true"
+ARG QWEN_MODEL_FILE="qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+ARG QWEN_MODEL_MIN_BYTES=900000000
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && for attempt in 1 2 3 4 5; do \
+        echo "GGUF download attempt $attempt"; \
+        curl -fL --retry 0 --connect-timeout 20 --max-time 1800 \
+            -o "/models/${QWEN_MODEL_FILE}" "${QWEN_MODEL_URL}" \
+            && SIZE=$(stat -c%s "/models/${QWEN_MODEL_FILE}") \
+            && [ "$SIZE" -ge "$QWEN_MODEL_MIN_BYTES" ] \
+            && break \
+            || { \
+                if [ "$attempt" = "5" ]; then \
+                    echo "GGUF download failed after 5 attempts" >&2; \
+                    exit 1; \
+                fi; \
+                rm -f "/models/${QWEN_MODEL_FILE}"; \
+                echo "retrying in 10s..."; sleep 10; \
+            }; \
+    done \
+    && ls -lh "/models/${QWEN_MODEL_FILE}"
+
 # ---------- Stage 3: runtime ----------
 FROM python:3.12-slim AS runtime
 
@@ -111,6 +149,15 @@ ENV NOTEBOOK_STORAGE_DIR=/data/notebooks \
     RUNTIME_CONFIG_DIR=/data/admin \
     UPLOADS_STORAGE_DIR=/data/uploads \
     PUBLISHED_STORAGE_DIR=/data/published
+
+# Drop the bundled GGUF in /app/models — read-only is fine, the
+# provider mmaps it. The default AI_PROVIDER for the published image is
+# `bundled` so the demo flow works on a bare `docker run`. Override
+# with `-e AI_PROVIDER=openai -e OPENAI_API_KEY=...` to skip the local
+# model and run zero-RAM-overhead with a hosted provider.
+COPY --from=model-fetch --chown=redbook:redbook /models /app/models
+ENV AI_PROVIDER=bundled \
+    QWEN_MODEL_PATH=/app/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf
 
 USER redbook
 

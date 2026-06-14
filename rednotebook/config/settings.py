@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-AIProviderName = Literal["mock", "openai", "anthropic", "ollama"]
+AIProviderName = Literal["mock", "bundled", "openai", "anthropic", "ollama"]
 KnowledgeProviderName = Literal["internal", "notebooklm_enterprise"]
 AIContextMode = Literal["schema_only", "schema_and_stats", "schema_stats_samples"]
 
@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     trino_ca_cert_path: str | None = None
 
     # AI
+    # Default stays "mock" so a bare `pip install rednotebook-ai` still
+    # boots without a model file on disk. The published Docker image
+    # sets AI_PROVIDER=bundled in its ENV so the out-of-box demo uses
+    # the local Qwen 1.5B model that's baked into /app/models/.
     ai_provider: AIProviderName = "mock"
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
@@ -59,6 +63,10 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
+    # Bundled provider: optional path override for an alternative GGUF
+    # (e.g., a bigger Qwen 7B dropped in by an admin). When unset the
+    # provider looks in /app/models/ and then ./models/.
+    bundled_model_path: str | None = None
 
     # AI context controls
     ai_context_mode: AIContextMode = "schema_and_stats"
