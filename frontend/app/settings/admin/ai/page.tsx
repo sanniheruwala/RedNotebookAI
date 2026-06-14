@@ -499,8 +499,9 @@ function ActiveProviderBanner({
         {mismatchedToMock ? (
           <div className="leading-relaxed">
             Configured as <span className="font-mono">{configured}</span>, but
-            instantiation failed — check that the API key is valid. Falling
-            back to the deterministic mock provider.
+            instantiation failed —{" "}
+            {fallbackHint(configured)}. Falling back to the deterministic
+            mock provider.
           </div>
         ) : (
           <div className="leading-relaxed">
@@ -512,6 +513,31 @@ function ActiveProviderBanner({
       </div>
     </div>
   );
+}
+
+// What to suggest checking when a configured provider fell back to mock.
+// Each provider has a different first-line failure mode, so a single
+// "check the API key" sentence is misleading for providers that don't
+// have keys (bundled, ollama, mock).
+function fallbackHint(provider: string): string {
+  switch (provider) {
+    case "bundled":
+      return (
+        "verify the bundled GGUF model exists at /app/models/ and " +
+        "that llama-cpp-python is installed (Docker images include both " +
+        "by default)"
+      );
+    case "ollama":
+      return (
+        "verify the Ollama server is reachable at OLLAMA_BASE_URL and the " +
+        "configured model is pulled"
+      );
+    case "openai":
+    case "anthropic":
+      return "verify the API key is valid and the configured model is correct";
+    default:
+      return "check the provider configuration (key / endpoint / model)";
+  }
 }
 
 // Human-readable labels for the provider dropdown. Returns the raw key

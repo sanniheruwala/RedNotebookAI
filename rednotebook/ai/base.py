@@ -5,7 +5,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+# ``schema`` is a valid domain term for us (DataFrameSchema), but Pydantic
+# v2 reserves any attribute name that shadows BaseModel's class methods
+# unless you opt out. Empty ``protected_namespaces`` silences the
+# UserWarning that fired on every server start.
+_ALLOW_SCHEMA_FIELD = ConfigDict(protected_namespaces=())
 
 
 class DataFrameSchema(BaseModel):
@@ -60,6 +66,8 @@ class AIContext(BaseModel):
 class ResultContext(BaseModel):
     """Context for summarizing a query result."""
 
+    model_config = _ALLOW_SCHEMA_FIELD
+
     sql: str
     schema: DataFrameSchema
     aggregated_stats: dict[str, Any] = Field(default_factory=dict)
@@ -78,6 +86,8 @@ class ChartSuggestion(BaseModel):
 
 
 class InfographicContext(BaseModel):
+    model_config = _ALLOW_SCHEMA_FIELD
+
     template: str = "executive_kpi_brief"
     title_hint: str | None = None
     sql: str | None = None
