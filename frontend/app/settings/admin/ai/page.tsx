@@ -177,8 +177,9 @@ export default function AdminAIPage() {
             ))}
           </Select>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            <strong>Bundled</strong> runs Qwen 1.5B locally on this machine —
-            free, private, ~3-5s per query, fine for the demo notebook.
+            <strong>Bundled</strong> runs Qwen 0.5B locally on this machine —
+            free, private, ~8-20s per query on a CPU, fine for the demo
+            notebook.
             <strong> OpenAI / Anthropic</strong> are faster and smarter but
             need an API key. <strong>Ollama</strong> lets you point at a
             bigger local model you already host. <strong>Mock</strong>
@@ -546,7 +547,7 @@ function fallbackHint(provider: string): string {
 function providerLabel(p: string): string {
   switch (p) {
     case "bundled":
-      return "Bundled · Qwen 1.5B (local, no setup)";
+      return "Bundled · Qwen 0.5B (local, no setup)";
     case "openai":
       return "OpenAI";
     case "anthropic":

@@ -47,18 +47,25 @@ RUN pip install --upgrade pip build \
 #
 # Pulled in a dedicated stage so the model layer is cached separately
 # from the application layer — bumping the app version doesn't force
-# a re-download of the 1 GB model. We retry up to 5 times because
+# a re-download of the model. We retry up to 5 times because
 # HuggingFace's CDN occasionally times out mid-stream behind CI egress.
 #
-# Model: Qwen2.5-Coder-1.5B-Instruct, Q4_K_M quant (~ 1.0 GB on disk,
-# ~ 1.5 GB resident). Apache 2.0 licensed. The bundled provider
+# Model: Qwen2.5-Coder-0.5B-Instruct, Q4_K_M quant (~ 400 MB on disk,
+# ~ 600 MB resident). Apache 2.0 licensed. The bundled provider
 # (rednotebook/ai/bundled_provider.py) mmaps this at boot.
+#
+# Why 0.5B not the 1.5B we shipped in v0.7.25-v0.7.27: on HF Space's
+# free-tier shared 2 vCPU, 1.5B took 30-90 s per summarize call —
+# functional but felt broken. 0.5B drops that to 8-20 s. The model is
+# noticeably dumber on real warehouses, but the bundled provider's job
+# is "feels fast on a cold demo" — for real work users graduate to
+# OpenAI / Anthropic / a larger local model via Ollama.
 FROM debian:bookworm-slim AS model-fetch
 WORKDIR /models
 
-ARG QWEN_MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf?download=true"
-ARG QWEN_MODEL_FILE="qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
-ARG QWEN_MODEL_MIN_BYTES=900000000
+ARG QWEN_MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf?download=true"
+ARG QWEN_MODEL_FILE="qwen2.5-coder-0.5b-instruct-q4_k_m.gguf"
+ARG QWEN_MODEL_MIN_BYTES=300000000
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
@@ -168,7 +175,7 @@ ENV NOTEBOOK_STORAGE_DIR=/data/notebooks \
 # model and run zero-RAM-overhead with a hosted provider.
 COPY --from=model-fetch --chown=redbook:redbook /models /app/models
 ENV AI_PROVIDER=bundled \
-    QWEN_MODEL_PATH=/app/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf
+    QWEN_MODEL_PATH=/app/models/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf
 
 USER redbook
 

@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     # Default stays "mock" so a bare `pip install rednotebook-ai` still
     # boots without a model file on disk. The published Docker image
     # sets AI_PROVIDER=bundled in its ENV so the out-of-box demo uses
-    # the local Qwen 1.5B model that's baked into /app/models/.
+    # the local Qwen 0.5B model that's baked into /app/models/.
     ai_provider: AIProviderName = "mock"
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
