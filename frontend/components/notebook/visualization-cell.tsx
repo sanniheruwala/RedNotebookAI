@@ -28,16 +28,31 @@ export function VisualizationCell({ cell }: { cell: VisualizationCellType }) {
   const duplicateCell = useNotebookStore((s) => s.duplicateCell);
   const moveCell = useNotebookStore((s) => s.moveCell);
 
+  // Map every SQL cell to a dropdown option whose label is anchored on
+  // its position in the notebook (Cell #1, #2, …) so the user can match
+  // the picker to what they see in the canvas. Without the position
+  // prefix, a notebook with two "SELECT * FROM …" cells both truncated
+  // to "SELECT" in the dropdown — that's the v0.7.28 bug.
   const sqlCells = React.useMemo(
     () =>
       notebook.cells
-        .filter((c) => c.cell_type === "sql")
-        .map((c) => ({
-          id: c.id,
-          label:
-            (c.cell_type === "sql" && c.sql.trim().split("\n")[0].slice(0, 60)) ||
-            "Untitled SQL",
-        })),
+        .map((c, idx) => ({ cell: c, position: idx + 1 }))
+        .filter((entry) => entry.cell.cell_type === "sql")
+        .map((entry) => {
+          const c = entry.cell;
+          const preview =
+            c.cell_type === "sql"
+              ? c.sql
+                  .replace(/\s+/g, " ")
+                  .trim()
+                  .slice(0, 52)
+              : "";
+          const labelPreview = preview || "(empty)";
+          return {
+            id: c.id,
+            label: `Cell #${entry.position} · ${labelPreview}`,
+          };
+        }),
     [notebook.cells]
   );
 
@@ -132,9 +147,11 @@ export function VisualizationCell({ cell }: { cell: VisualizationCellType }) {
             onChange={(e) => onChangeSource(e.target.value)}
             disabled={sqlCells.length === 0}
           >
-            {sqlCells.length === 0 && <option value="">No SQL cells yet</option>}
+            {sqlCells.length === 0 && (
+              <option value="">No SQL cells yet — add one above</option>
+            )}
             {sqlCells.length > 0 && cell.source_cell_id === null && (
-              <option value="">Pick a SQL cell</option>
+              <option value="">Pick a SQL cell as the data source…</option>
             )}
             {sqlCells.map((c) => (
               <option key={c.id} value={c.id}>

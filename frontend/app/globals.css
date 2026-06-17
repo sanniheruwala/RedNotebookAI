@@ -120,6 +120,30 @@
       Menlo, Consolas, monospace;
     font-feature-settings: "cv02" 1, "cv03" 1, "cv04" 1;
   }
+
+  /*
+   * Native <select> popups (the OS-rendered option list) inherit OS theme
+   * defaults unless we explicitly tell the browser otherwise. Without
+   * this rule the dropdown items rendered with a light background and
+   * near-invisible text in dark mode on Windows / older Chrome / some
+   * Linux builds — reported with a screenshot, hard to reproduce on a
+   * Mac because the OS handles it differently.
+   *
+   * `color-scheme: dark` flips the browser's UA-styled controls into
+   * the dark variant (dropdown popup, scrollbar, autofill outline, etc.).
+   * Styling `option` directly is the belt-and-suspenders for browsers
+   * that ignore color-scheme but DO honor option { background-color }.
+   */
+  .dark select,
+  .dark input,
+  .dark textarea {
+    color-scheme: dark;
+  }
+  .dark option,
+  .dark optgroup {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
 }
 
 @layer components {
