@@ -316,14 +316,38 @@ class BundledAIProvider(AIProvider):
         return _chat(system, user, max_tokens=200)
 
     def optimize_sql(self, sql: str, context: AIContext) -> str:
+        # The frontend writes this response *directly back into the SQL
+        # cell*, so the model MUST return parseable SQL with no prose,
+        # no fences, no diff markers. The previous prompt asked for
+        # fenced SQL + bullet explanation and the DuckDB parser choked
+        # on the leading ```sql line (v0.7.27 bug).
+        #
+        # Small models often ignore "no markdown" instructions anyway,
+        # so we also run the response through _extract_sql_block as a
+        # defensive layer and fall back to the original SQL if the
+        # model returned something we can't parse out — better to
+        # silently keep the user's query than to overwrite their cell
+        # with broken content.
+        dialect = context.dialect or "ANSI SQL"
         system = (
-            "You are an experienced SQL performance engineer. Return an OPTIMIZED "
-            "version of the user's query (same result set, faster plan when "
-            "possible). Wrap the rewritten SQL in a ```sql code fence. After the "
-            "fence, list 1-3 short bullet points explaining what changed."
+            f"You are a senior {dialect} query optimizer. Rewrite the user's "
+            "SQL so it runs faster and reads less data while producing the "
+            "EXACT same rows (or document why a change is safe in a SQL "
+            "comment). Apply predicate pushdown, prune SELECT *, eliminate "
+            "redundant subqueries / ORDER BY / DISTINCT in inner scopes, "
+            "prefer EXISTS over IN(subquery), and reorder joins so the "
+            "smallest filtered relation is on the build side — whenever any "
+            "of those are safe.\n\n"
+            "Return ONLY the optimized SQL. No prose. No markdown fences. "
+            "No diff. If no safe optimization applies, return the original "
+            "SQL verbatim."
         )
-        user = f"```sql\n{sql.strip()}\n```"
-        return _chat(system, user, max_tokens=260)
+        user = sql.strip()
+        raw = _chat(system, user, max_tokens=300)
+        extracted = _extract_sql_block(raw)
+        if not extracted or not extracted.strip():
+            return sql
+        return extracted
 
     # ----------------------------------------------------------------- chart
 

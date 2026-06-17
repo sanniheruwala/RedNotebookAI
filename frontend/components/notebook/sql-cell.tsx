@@ -203,7 +203,14 @@ export function SQLCell({ cell }: { cell: SQLCellType }) {
 
   const optimizeToastId = `optimize-${cell.id}`;
   const optimize = useMutation({
-    mutationFn: () => api.aiOptimizeSQL({ sql: cell.sql, context: {} }),
+    // Pass the active connection's dialect so the AI rewrites with the
+    // right syntax (DuckDB ``date_trunc(...)::date`` casts, BigQuery
+    // backticks, Snowflake QUALIFY, etc.) instead of defaulting to ANSI.
+    mutationFn: () =>
+      api.aiOptimizeSQL({
+        sql: cell.sql,
+        context: { dialect: connection?.connector_type ?? null },
+      }),
     onMutate: () => {
       toast.loading("AI is optimizing your SQL…", { id: optimizeToastId });
     },
